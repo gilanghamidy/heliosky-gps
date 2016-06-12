@@ -109,6 +109,7 @@
   <ItemGroup>
     <Compile Include="Model\DegreePosition.cs" />
     <Compile Include="Model\GPSModel.cs" />
+    <Compile Include="Model\NMEAParser.cs" />
     <Compile Include="Model\Position.cs" />
     <Compile Include="SerialGPS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

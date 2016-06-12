@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Heliosky.IoT.GPS.Model
 {
-    struct LatitudeDegree
+    public struct LatitudeDegree
     {
         public enum DirectionType
         {

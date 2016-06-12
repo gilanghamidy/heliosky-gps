@@ -6,7 +6,12 @@ using System.Threading.Tasks;
 
 namespace Heliosky.IoT.GPS.Model
 {
-    struct GPGGA
+    class GPSModel
+    {
+
+    }
+
+    class FixData : GPSModel
     {
         public DateTime CurrentTime { get; internal set; }
         public LatitudeDegree Latitude { get; internal set; }
