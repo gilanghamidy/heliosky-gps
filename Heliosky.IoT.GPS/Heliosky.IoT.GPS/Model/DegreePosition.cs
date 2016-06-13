@@ -14,7 +14,7 @@ namespace Heliosky.IoT.GPS.Model
         }
 
         public int Degree { get; set; }
-        public float Minutes { get; set; }
+        public double Minutes { get; set; }
         public DirectionType Direction { get; set; }
     }
 
@@ -26,7 +26,7 @@ namespace Heliosky.IoT.GPS.Model
         }
 
         public int Degree { get; set; }
-        public float Minutes { get; set; }
+        public double Minutes { get; set; }
         public DirectionType Direction { get; set; }
     }
 }
