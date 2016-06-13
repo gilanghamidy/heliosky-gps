@@ -5,6 +5,8 @@ VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Heliosky.IoT.GPS", "Heliosky.IoT.GPS\Heliosky.IoT.GPS.csproj", "{05000B6E-ED5C-4280-A176-CCEEE55E2CE4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Heliosky.IoT.GPS.Test", "Heliosky.IoT.GPS.Test\Heliosky.IoT.GPS.Test.csproj", "{49121E39-4968-401C-88D9-09C8456071FE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,26 @@ Global
 		{05000B6E-ED5C-4280-A176-CCEEE55E2CE4}.Release|x64.Build.0 = Release|x64
 		{05000B6E-ED5C-4280-A176-CCEEE55E2CE4}.Release|x86.ActiveCfg = Release|x86
 		{05000B6E-ED5C-4280-A176-CCEEE55E2CE4}.Release|x86.Build.0 = Release|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|ARM.ActiveCfg = Debug|ARM
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|ARM.Build.0 = Debug|ARM
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|ARM.Deploy.0 = Debug|ARM
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|x64.ActiveCfg = Debug|x64
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|x64.Build.0 = Debug|x64
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|x64.Deploy.0 = Debug|x64
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|x86.ActiveCfg = Debug|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|x86.Build.0 = Debug|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Debug|x86.Deploy.0 = Debug|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|Any CPU.ActiveCfg = Release|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|ARM.ActiveCfg = Release|ARM
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|ARM.Build.0 = Release|ARM
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|ARM.Deploy.0 = Release|ARM
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|x64.ActiveCfg = Release|x64
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|x64.Build.0 = Release|x64
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|x64.Deploy.0 = Release|x64
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|x86.ActiveCfg = Release|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|x86.Build.0 = Release|x86
+		{49121E39-4968-401C-88D9-09C8456071FE}.Release|x86.Deploy.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
