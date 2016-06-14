@@ -32,6 +32,16 @@ namespace Heliosky.IoT.GPS.Model
         public int DependentIndex { get; set; }
     }
 
+    [System.AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+    sealed class NMEAFieldParserAttribute : Attribute
+    {
+        // This is a positional argument
+        public NMEAFieldParserAttribute()
+        {
+
+        }
+    }
+
     public class NMEAParser
     {
         private const string NMEAStringRegex = @"^\$(([A-Z]+),(.*))\*([ABCDEF0-9]{2})$";
@@ -62,16 +72,16 @@ namespace Heliosky.IoT.GPS.Model
             {
                 try
                 {                    
-                    byte textChecksum = Checksum(parseMatch.Captures[1].Value);
-                    byte validChecksum = byte.Parse(parseMatch.Captures[4].Value, System.Globalization.NumberStyles.HexNumber);
+                    byte textChecksum = Checksum(parseMatch.Groups[1].Value);
+                    byte validChecksum = byte.Parse(parseMatch.Groups[4].Value, System.Globalization.NumberStyles.HexNumber);
 
                     if(textChecksum != validChecksum)
                     {
                         throw new Exception();
                     }
 
-                    string keyword = parseMatch.Captures[2].Value;
-                    string[] objectContent = parseMatch.Captures[3].Value.Split(',');
+                    string keyword = parseMatch.Groups[2].Value;
+                    string[] objectContent = parseMatch.Groups[3].Value.Split(',');
 
                     parsedModel = this.parserList[keyword].Parse(objectContent);
                 }
@@ -102,13 +112,37 @@ namespace Heliosky.IoT.GPS.Model
     {
         private static Regex timeFormatRegex;
         private static Regex degreeFormatRegex;
+        private static Dictionary<Type, MethodInfo> fieldParserMethod;
 
         static NMEAFormat()
         {
             timeFormatRegex = new Regex(@"([0-2][0-9])([0-5][0-9])([0-5][0-9])\.([0-9]{2})");
             degreeFormatRegex = new Regex(@"([0-9]{2,3})([0-9]{2}\.[0-9]{4})");
+
+            var internalParser = from method in typeof(NMEAFormat).GetTypeInfo().DeclaredMethods
+                                 let attr = method.GetCustomAttribute(typeof(NMEAFieldAttribute)) as NMEAFieldParserAttribute
+                                 where attr != null
+                                 select new { method.ReturnType, method };
+
+            // Internal parser
+            fieldParserMethod = internalParser.ToDictionary(k => k.ReturnType, v => v.method);
+
+            // Double parser
+            fieldParserMethod.Add(typeof(double), typeof(double).GetMethod("Parse", new Type[] { typeof(string) }));
+
+            // Integer parser
+            fieldParserMethod.Add(typeof(int), typeof(int).GetMethod("Parse", new Type[] { typeof(string) }));
+
+            
         }
 
+
+        public static object ParseValue(Type targetType, string value, string dependent)
+        {
+            return null;
+        }
+
+        [NMEAFieldParser]
         public static DateTime ParseTime(string time)
         {
             var timeMatcher = timeFormatRegex.Match(time);
@@ -131,6 +165,7 @@ namespace Heliosky.IoT.GPS.Model
 
         }
 
+        [NMEAFieldParser]
         public static LatitudeDegree ParseLatitude(string degree, string direction)
         {
             if (direction != "N" || direction != "S")
@@ -149,6 +184,7 @@ namespace Heliosky.IoT.GPS.Model
             return ret;
         }
 
+        [NMEAFieldParser]
         public static LongitudeDegree ParseLongitude(string degree, string direction)
         {
             if (direction != "E" || direction != "W")
@@ -166,6 +202,8 @@ namespace Heliosky.IoT.GPS.Model
 
             return ret;
         }
+
+        
     }
 
     public class NMEAObjectParser
@@ -178,6 +216,7 @@ namespace Heliosky.IoT.GPS.Model
             public int DependentIndex { get; set; }
         }
         private List<NMEAFieldDefinition> fieldDefinition;
+        private Type modelType;
 
         public NMEAObjectParser(Type type)
         {
@@ -193,11 +232,21 @@ namespace Heliosky.IoT.GPS.Model
                              };
 
             fieldDefinition = properties.ToList();
+            modelType = type;
         }
 
         public GPSModel Parse(string[] values)
         {
+            GPSModel retInstance = (GPSModel)modelType.GetConstructor(new Type[0]).Invoke(null);
 
+            foreach(var def in fieldDefinition)
+            {
+            
+            }
+
+            return retInstance;
         }
+
+        
     }
 }
