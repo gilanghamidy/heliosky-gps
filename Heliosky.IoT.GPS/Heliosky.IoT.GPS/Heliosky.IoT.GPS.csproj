@@ -107,10 +107,14 @@
     <None Include="project.json" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Model\DegreePosition.cs" />
-    <Compile Include="Model\GPSModel.cs" />
-    <Compile Include="Model\NMEAParser.cs" />
-    <Compile Include="Model\Position.cs" />
+    <Compile Include="Attributes.cs" />
+    <Compile Include="Exceptions.cs" />
+    <Compile Include="Models.cs" />
+    <Compile Include="DegreeTypes.cs" />
+    <Compile Include="NMEAFormat.cs" />
+    <Compile Include="NMEAObjectParser.cs" />
+    <Compile Include="NMEAParser.cs" />
+    <Compile Include="Position.cs" />
     <Compile Include="SerialGPS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Heliosky.IoT.GPS.rd.xml" />
