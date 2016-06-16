@@ -8,13 +8,26 @@ using Windows.Devices.Enumeration;
 using Windows.Devices.SerialCommunication;
 using Windows.Storage.Streams;
 
+using Windows.ApplicationModel.Background;
+using System.IO;
+
 namespace Heliosky.IoT.GPS
 {
+    public class FixDataReceivedEventArgs : EventArgs
+    {
+        public FixData Data { get; set; }
+    }
+
     public class SerialGPS
     {
         private DeviceInformation deviceInfo;
         private SerialDevice serialPort;
         private CancellationTokenSource cancelToken;
+
+        private Task backgroundProcess;
+        private NMEAParser parser;
+
+        public event EventHandler<FixDataReceivedEventArgs> FixDataReceived;
 
         bool running;
 
@@ -24,6 +37,7 @@ namespace Heliosky.IoT.GPS
         {
             this.deviceInfo = deviceInfo;
             running = false;
+            parser = new NMEAParser();
         }
 
         public async void Start()
@@ -42,10 +56,11 @@ namespace Heliosky.IoT.GPS
 
                 cancelToken = new CancellationTokenSource();
 
+                var schedulerForUiContext = TaskScheduler.FromCurrentSynchronizationContext();
+                
                 running = true;
-
-                SerialListen();
-
+                
+                backgroundProcess = Task.Factory.StartNew(delegate { SerialListen(schedulerForUiContext); }, TaskCreationOptions.LongRunning, cancelToken.Token);
             }
             catch(Exception ex)
             {
@@ -69,33 +84,44 @@ namespace Heliosky.IoT.GPS
             }
         }
 
-        private async void SerialListen()
+        private async void SerialListen(TaskScheduler uiThreadScheduler)
         {
-            DataReader dataReader = null;
-            
+            StreamReader dataReader = null;
 
             try
             {
                 if(running)
                 {
-                    dataReader = new DataReader(serialPort.InputStream);
-                    dataReader.InputStreamOptions = InputStreamOptions.Partial;
-                    uint bufferLen = 1024;
+                    dataReader = new StreamReader(serialPort.InputStream.AsStreamForRead());
+                    //dataReader.InputStreamOptions = InputStreamOptions.Partial;
+                    //uint bufferLen = 1024;
 
                     while (true)
                     {
-                        Task<uint> loadAsyncTask;
+                        Task<string> loadAsyncTask;
                         cancelToken.Token.ThrowIfCancellationRequested();
-                        loadAsyncTask = dataReader.LoadAsync(bufferLen).AsTask(cancelToken.Token);
+                        loadAsyncTask = dataReader.ReadLineAsync();
 
+                        string bytesRead = await loadAsyncTask;
 
-
-
-                        uint bytesRead = await loadAsyncTask;
-
-                        if(bytesRead > 0)
+                        if(bytesRead != null && bytesRead.Length != 0)
                         {
+                            try
+                            {
+                                var gpsData = parser.Parse(bytesRead) as FixData;
+                                if (gpsData != null)
+                                {
+                                    Task.Factory.StartNew(delegate
+                                    {
+                                        FixDataReceived(this, new FixDataReceivedEventArgs() { Data = gpsData });
+                                    }, Task.Factory.CancellationToken, TaskCreationOptions.None, uiThreadScheduler);
 
+                                }
+                            }
+                            catch(Exception ex)
+                            {
+
+                            }
                         }
                     }
                 }
@@ -107,7 +133,6 @@ namespace Heliosky.IoT.GPS
             {
                 if(dataReader != null)
                 {
-                    dataReader.DetachStream();
                     dataReader.Dispose();
                     dataReader = null;
                 }
