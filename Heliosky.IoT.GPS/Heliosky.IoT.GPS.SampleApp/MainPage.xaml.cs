@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text;
 using Windows.Devices.Enumeration;
 using Windows.Devices.SerialCommunication;
 using Windows.Foundation;
@@ -45,6 +46,15 @@ namespace Heliosky.IoT.GPS.SampleApp
         private void Gps_FixDataReceived(object sender, FixDataReceivedEventArgs e)
         {
             statusTextBox.Text = "GPS Data Received at " + DateTime.Now.ToString();
+
+            StringBuilder bldr = new StringBuilder();
+            bldr.AppendLine("GPS Information");
+            bldr.AppendLine("Latitude: " + e.Data.Latitude);
+            bldr.AppendLine("Longitude: " + e.Data.Longitude);
+            bldr.AppendLine("Time: " + e.Data.CurrentTime);
+            bldr.AppendLine("Sattelite Used: " + e.Data.SateliteUsed);
+
+            contentTextBox.Text = bldr.ToString();
         }
     }
 }
