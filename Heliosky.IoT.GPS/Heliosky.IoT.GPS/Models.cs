@@ -15,25 +15,25 @@ namespace Heliosky.IoT.GPS
     public class FixData : GPSModel
     {
         [NMEAField(1)]
-        public DateTime CurrentTime { get; internal set; }
+        public DateTime? CurrentTime { get; internal set; }
 
         [NMEAField(2, 3)]
-        public LatitudeDegree Latitude { get; internal set; }
+        public LatitudeDegree? Latitude { get; internal set; }
 
         [NMEAField(4, 5)]
-        public LongitudeDegree Longitude { get; internal set; }
+        public LongitudeDegree? Longitude { get; internal set; }
 
         [NMEAField(9)]
-        public double MeanSeaLevel { get; internal set; }
+        public double? MeanSeaLevel { get; internal set; }
 
         [NMEAField(7)]
-        public int SateliteUsed { get; internal set; }
+        public int? SateliteUsed { get; internal set; }
 
         [NMEAField(8)]
-        public double HDOP { get; internal set; }
+        public double? HDOP { get; internal set; }
 
         [NMEAField(11)]
-        public double GeoidSeparation { get; internal set; }
+        public double? GeoidSeparation { get; internal set; }
     }
 
     [NMEAString("GPVTG")]

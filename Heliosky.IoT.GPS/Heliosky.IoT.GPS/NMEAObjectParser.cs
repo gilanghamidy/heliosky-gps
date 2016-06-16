@@ -42,7 +42,26 @@ namespace Heliosky.IoT.GPS
 
             foreach (var def in fieldDefinition)
             {
-                def.PropertyTarget.SetValue(retInstance, NMEAFormat.ParseValue(def.TargetType, values[def.Index], def.DependentIndex != null ? values[def.DependentIndex.Value] : null));
+                if (values[def.Index] != null && values[def.Index].Length != 0)
+                {
+                    try
+                    {
+                        if (def.TargetType.GetGenericTypeDefinition() == typeof(Nullable<>))
+                        {
+                            var internalType = def.TargetType.GenericTypeArguments[0];
+                            def.PropertyTarget.SetValue(retInstance, NMEAFormat.ParseValue(internalType, values[def.Index], def.DependentIndex != null ? values[def.DependentIndex.Value] : null));
+                        }
+                        else
+                        {
+                            throw new Exception();
+                        }
+                    }
+                    catch(Exception)
+                    {
+                        def.PropertyTarget.SetValue(retInstance, NMEAFormat.ParseValue(def.TargetType, values[def.Index], def.DependentIndex != null ? values[def.DependentIndex.Value] : null));
+                    }
+                }
+                
             }
 
             return retInstance;

@@ -16,6 +16,11 @@ namespace Heliosky.IoT.GPS
         public int Degree { get; set; }
         public double Minutes { get; set; }
         public DirectionType Direction { get; set; }
+
+        public override string ToString()
+        {
+            return Degree.ToString() + "\u00B0 " + Minutes.ToString() + "\" " + (Direction == DirectionType.North ? "N" : "S");
+        }
     }
 
     public struct LongitudeDegree
@@ -28,5 +33,10 @@ namespace Heliosky.IoT.GPS
         public int Degree { get; set; }
         public double Minutes { get; set; }
         public DirectionType Direction { get; set; }
+
+        public override string ToString()
+        {
+            return Degree.ToString() + "\u00B0 " + Minutes.ToString() + "\" " + (Direction == DirectionType.East ? "E" : "W");
+        }
     }
 }
