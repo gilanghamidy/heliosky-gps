@@ -10,9 +10,45 @@ using Windows.Storage.Streams;
 
 using Windows.ApplicationModel.Background;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Heliosky.IoT.GPS
 {
+
+    [Flags]
+    public enum UARTModeFlag : uint
+    {
+
+    }
+
+    [Flags]
+    public enum IOInProtocolMask : ushort
+    {
+
+    }
+
+    [Flags]
+    public enum IOOutProtocolMask : ushort
+    {
+
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ConfigUARTPort
+    {
+        public byte PortID { get; set; }
+        public byte Reserved { get; set; }
+        public ushort TxReady { get; private set; }
+        public uint Mode { get; private set; }
+        public uint BaudRate { get; set; }
+        public IOInProtocolMask InProtoMask { get; set; }
+        public IOOutProtocolMask OutProtoMask { get; set; }
+        public ushort Reserved4 { get; private set; }
+        public ushort Reserved5 { get; private set; }
+    
+    }
+
+
     public class FixDataReceivedEventArgs : EventArgs
     {
         public FixData Data { get; set; }
@@ -48,7 +84,7 @@ namespace Heliosky.IoT.GPS
 
                 serialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
                 serialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
-                serialPort.BaudRate = 9600;
+                serialPort.BaudRate = 115200;
                 serialPort.Parity = SerialParity.None;
                 serialPort.StopBits = SerialStopBitCount.One;
                 serialPort.DataBits = 8;
