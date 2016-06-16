@@ -23,19 +23,30 @@ namespace Heliosky.IoT.GPS.Test
             FixData data = (FixData)res;
 
             Assert.AreEqual(new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 12, 35, 19, 0), data.CurrentTime);
-            Assert.AreEqual(48, data.Latitude.Degree);
-            Assert.AreEqual(7.038, data.Latitude.Minutes);
-            Assert.AreEqual(LatitudeDegree.DirectionType.North, data.Latitude.Direction);
+            Assert.AreEqual(48, data.Latitude.Value.Degree);
+            Assert.AreEqual(7.038, data.Latitude.Value.Minutes);
+            Assert.AreEqual(LatitudeDegree.DirectionType.North, data.Latitude.Value.Direction);
 
-            Assert.AreEqual(11, data.Longitude.Degree);
-            Assert.AreEqual(31, data.Longitude.Minutes);
-            Assert.AreEqual(LongitudeDegree.DirectionType.East, data.Longitude.Direction);
+            Assert.AreEqual(11, data.Longitude.Value.Degree);
+            Assert.AreEqual(31, data.Longitude.Value.Minutes);
+            Assert.AreEqual(LongitudeDegree.DirectionType.East, data.Longitude.Value.Direction);
 
             Assert.AreEqual(8, data.SateliteUsed);
             Assert.AreEqual(0.9, data.HDOP);
 
             Assert.AreEqual(545.4, data.MeanSeaLevel);
             Assert.AreEqual(46.9, data.GeoidSeparation);
+        }
+
+        [TestMethod]
+        public void ParseGPGGAStringWithNullField()
+        {
+            string str = "$GPGGA,,,,,,,,,,,99.99,M,,*35";
+
+            var parser = new NMEAParser();
+            var res = parser.Parse(str);
+
+            FixData data = (FixData)res;
         }
 
         [TestMethod]
