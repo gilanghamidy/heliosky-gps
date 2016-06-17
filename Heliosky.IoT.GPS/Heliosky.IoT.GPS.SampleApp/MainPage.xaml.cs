@@ -38,6 +38,12 @@ namespace Heliosky.IoT.GPS.SampleApp
             var dis = await DeviceInformation.FindAllAsync(aqs);
             gps = new SerialGPS(dis[0]);
             gps.FixDataReceived += Gps_FixDataReceived;
+            gps.UARTConfiguration = new ConfigUARTPort()
+            {
+                PortID = 1,
+                BaudRate = 115200,
+                Mode = ConfigUARTPort.DefaultMode
+            };
             gps.Start();
 
             statusTextBox.Text = "GPS Started";

@@ -36,16 +36,17 @@ namespace Heliosky.IoT.GPS
     [StructLayout(LayoutKind.Sequential)]
     public struct ConfigUARTPort
     {
-        public byte PortID { get; set; }
-        public byte Reserved { get; set; }
-        public ushort TxReady { get; private set; }
-        public uint Mode { get; private set; }
-        public uint BaudRate { get; set; }
-        public IOInProtocolMask InProtoMask { get; set; }
-        public IOOutProtocolMask OutProtoMask { get; set; }
-        public ushort Reserved4 { get; private set; }
-        public ushort Reserved5 { get; private set; }
-    
+        public byte PortID;
+        public byte Reserved;
+        public ushort TxReady;
+        public uint Mode;
+        public uint BaudRate;
+        public IOInProtocolMask InProtoMask;
+        public IOOutProtocolMask OutProtoMask;
+        public ushort Reserved4;
+        public ushort Reserved5;
+
+        public const uint DefaultMode = 0x8D0;
     }
 
 
@@ -76,6 +77,8 @@ namespace Heliosky.IoT.GPS
             parser = new NMEAParser();
         }
 
+        public ConfigUARTPort? UARTConfiguration { get; set; }
+
         public async void Start()
         {
             try
@@ -84,7 +87,7 @@ namespace Heliosky.IoT.GPS
 
                 serialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
                 serialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
-                serialPort.BaudRate = 115200;
+                serialPort.BaudRate = 9600;
                 serialPort.Parity = SerialParity.None;
                 serialPort.StopBits = SerialStopBitCount.One;
                 serialPort.DataBits = 8;
@@ -95,12 +98,39 @@ namespace Heliosky.IoT.GPS
                 var schedulerForUiContext = TaskScheduler.FromCurrentSynchronizationContext();
                 
                 running = true;
-                
+
+                ConfigPort();
+
                 backgroundProcess = Task.Factory.StartNew(delegate { SerialListen(schedulerForUiContext); }, TaskCreationOptions.LongRunning, cancelToken.Token);
             }
             catch(Exception ex)
             {
                 throw ex;
+            }
+        }
+
+        private async void ConfigPort()
+        {
+            if(UARTConfiguration.HasValue)
+            {
+                var config = UARTConfiguration.Value;
+
+                int size = Marshal.SizeOf(config);
+                byte[] payload = new byte[size];
+                
+                IntPtr ptr = Marshal.AllocHGlobal(size);
+                Marshal.StructureToPtr(config, ptr, true);
+                unsafe
+                {
+                    byte* ptrArr = (byte*)ptr.ToPointer();
+
+                    for(int i = 0; i < size; i++)
+                    {
+                        payload[i] = ptrArr[i];
+                    }
+
+                }
+                Marshal.FreeHGlobal(ptr);
             }
         }
 
