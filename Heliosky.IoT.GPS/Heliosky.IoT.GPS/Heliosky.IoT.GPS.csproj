@@ -118,6 +118,8 @@
     <Compile Include="Position.cs" />
     <Compile Include="SerialGPS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="UBXAttributes.cs" />
+    <Compile Include="UBXModels.cs" />
     <EmbeddedResource Include="Properties\Heliosky.IoT.GPS.rd.xml" />
   </ItemGroup>
   <ItemGroup>

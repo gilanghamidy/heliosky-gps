@@ -85,8 +85,8 @@ namespace Heliosky.IoT.GPS
             {
                 serialPort = await SerialDevice.FromIdAsync(deviceInfo.Id);
 
-                serialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
-                serialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
+                serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
+                serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
                 serialPort.BaudRate = 9600;
                 serialPort.Parity = SerialParity.None;
                 serialPort.StopBits = SerialStopBitCount.One;
@@ -131,7 +131,55 @@ namespace Heliosky.IoT.GPS
 
                 }
                 Marshal.FreeHGlobal(ptr);
+
+                DataWriter dataWriter = null;
+
+                try
+                {
+                    dataWriter = new DataWriter(serialPort.OutputStream);
+                    dataWriter.WriteByte(0xB5);  // Sync Char 1
+                    dataWriter.WriteByte(0x62); // Sync Char 2
+                    dataWriter.WriteByte(0x06); // Message Class CFG
+                    dataWriter.WriteByte(0x00); // Message ID PRT
+                    dataWriter.WriteUInt16((ushort)size); // Message Size
+                    dataWriter.WriteBytes(payload); // Payload
+                    var checksum = GetChecksum(payload);
+                    dataWriter.WriteByte(checksum.Item1);
+                    dataWriter.WriteByte(checksum.Item2);
+
+                    var task = dataWriter.StoreAsync().AsTask();
+                    uint bytesWritter = await task;
+                }
+                finally
+                {
+                    if (dataWriter != null)
+                        dataWriter.Dispose();
+                }
             }
+        }
+
+        private Tuple<byte,byte> GetChecksum(byte[] payload)
+        {
+            byte valA = 0;
+            byte valB = 0;
+
+            foreach(byte data in ChecksumEnumerator(payload))
+            {
+                valA = (byte)((valA + data) % 255);
+                valB = (byte)((valB + valA) % 255);
+            }
+
+            return new Tuple<byte, byte>(valA, valB);
+        }
+
+        private IEnumerable<byte> ChecksumEnumerator(byte[] payload)
+        {
+            yield return 0x06;
+            yield return 0x00;
+            yield return (byte)payload.Length;
+            yield return (byte)(payload.Length >> 8);
+            for (int i = 0; i < payload.Length; i++)
+                yield return payload[i];
         }
 
         public void Stop()
@@ -194,6 +242,10 @@ namespace Heliosky.IoT.GPS
             }
             catch (TaskCanceledException)
             {
+            }
+            catch(Exception ex)
+            {
+
             }
             finally
             {
