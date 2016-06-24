@@ -100,6 +100,7 @@ namespace Heliosky.IoT.GPS
                 running = true;
 
                 ConfigPort();
+                
 
                 backgroundProcess = Task.Factory.StartNew(delegate { SerialListen(schedulerForUiContext); }, TaskCreationOptions.LongRunning, cancelToken.Token);
             }
@@ -153,7 +154,11 @@ namespace Heliosky.IoT.GPS
                 finally
                 {
                     if (dataWriter != null)
+                    {
+                        dataWriter.DetachStream();
                         dataWriter.Dispose();
+                    }
+                        
                 }
             }
         }
