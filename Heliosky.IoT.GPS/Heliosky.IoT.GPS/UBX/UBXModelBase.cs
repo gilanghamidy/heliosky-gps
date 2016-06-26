@@ -11,12 +11,153 @@ namespace Heliosky.IoT.GPS.UBX
 {
     public abstract class UBXModelBase
     {
-        private static Dictionary<Type, UBXMessageDefinition> propertyMapper = new Dictionary<Type, UBXMessageDefinition>();
+        public const byte Header1 = 0xB5;
+        public const byte Header2 = 0x62;
 
-        private struct UBXMessageDefinition
+        private static Dictionary<Type, UBXMessageDefinition> propertyMapper;
+        private static Dictionary<UBXMessageIndex, UBXMessageDefinition> parsableTypeIndex;
+
+        private class UBXMessageDefinition
         {
-            public List<PropertyInfo> PropertyMap { get; set; }
+            public Type MessageClass { get; set; }
+            public UBXMessageAttribute Metadata { get; set; }
+            public List<UBXFieldDefinition> PropertyMap { get; set; }
             public short PayloadSize { get; set; }
+        }
+
+        private struct UBXFieldDefinition
+        {
+            public PropertyInfo Property { get; set; }
+            public int Size { get; set; }
+        }
+
+        private struct UBXMessageIndex
+        {
+            public short PayloadSize { get; set; }
+            public byte ClassID { get; set; }
+            public byte MessageID { get; set; }
+
+            public UBXMessageIndex(byte classId, byte messageId)
+            {
+                this.ClassID = classId;
+                this.MessageID = messageId;
+                PayloadSize = 0;
+            }
+
+            public override bool Equals(object obj)
+            {
+                try
+                {
+                    var that = (UBXMessageIndex)obj;
+
+                    return this.ClassID == that.ClassID
+                                && this.MessageID == that.MessageID;
+                }
+                catch(Exception)
+                {
+                    return false;
+                }
+            }
+
+            public override int GetHashCode()
+            {
+                return  this.ClassID * this.MessageID;
+            }
+        }
+
+        static UBXModelBase()
+        {
+            Assembly thisAssembly = typeof(NMEAParser).GetTypeInfo().Assembly;
+
+            var items = from t in thisAssembly.GetTypes()
+                        let attr = t.GetTypeInfo().GetCustomAttribute(typeof(UBXMessageAttribute)) as UBXMessageAttribute
+                        where attr != null
+                        let definition = GenerateDefinition(t, attr)
+                        select definition;
+
+            propertyMapper = items.ToDictionary(k => k.MessageClass, v => v);
+            parsableTypeIndex = items.Where(x => (x.Metadata.Type & MessageType.Receive) != 0).ToDictionary(k => new UBXMessageIndex(k.Metadata.ClassID, k.Metadata.MessageID), v => v);
+
+        }
+
+        public static UBXModelBase TryParse(byte[] payload)
+        {
+            if (payload[0] != Header1 || payload[1] != Header2)
+                throw new InvalidMessageHeaderException();
+
+            byte classId = payload[2];
+            byte messageId = payload[3];
+            int messageLength = payload[4] | (payload[5] << 8);
+
+            try
+            {
+                var ubxType = parsableTypeIndex[new UBXMessageIndex(classId, messageId)];
+
+                ushort expectedChecksum = (ushort)((payload[payload.Length - 2]) | (payload[payload.Length - 1] << 8));
+                ushort computedChecksum = GetChecksum(payload, 2, payload.Length - 2);
+
+                if (expectedChecksum != computedChecksum)
+                    throw new InvalidChecksumException(String.Format("Checksum expected {0}, computed {1}", expectedChecksum, computedChecksum));
+
+                BinaryReader reader = new BinaryReader(new MemoryStream(payload, 6, messageLength));
+
+                UBXModelBase retVal = (UBXModelBase)Activator.CreateInstance(ubxType.MessageClass);
+
+                foreach(var property in ubxType.PropertyMap)
+                {
+                    property.Property.SetValue(retVal, reader.Read(property.Property.PropertyType));
+                }
+
+                return retVal;
+            }
+            catch(KeyNotFoundException)
+            {
+                throw new UnknownMessageException(string.Format("Unknown message with Class: {0}, MessageID: {1}", classId, messageId));
+            }
+        }
+
+        private static UBXMessageDefinition GenerateDefinition(Type t, UBXMessageAttribute metadata)
+        {
+            var typeInfo = t.GetTypeInfo();
+
+            var listOfDeclaredProperties = from prop in TypeExtensions.GetProperties(t)
+                                           let attr = prop.GetCustomAttribute<UBXFieldAttribute>()
+                                           where attr != null
+                                           orderby attr.Index
+                                           select new UBXFieldDefinition() { Property = prop, Size = Marshal.SizeOf(prop.PropertyType) };
+
+            return new UBXMessageDefinition()
+            {
+                PropertyMap = listOfDeclaredProperties.ToList(),
+                PayloadSize = (short)listOfDeclaredProperties.Sum(x => x.Size),
+                MessageClass = t,
+                Metadata = metadata
+            };
+        }
+
+        private static ushort GetChecksum(byte[] payload)
+        {
+            return GetChecksum(payload, 0, payload.Length);
+        }
+
+        private static ushort GetChecksum(byte[] payload, int indexStart, int length)
+        {
+            unchecked
+            {
+                uint crc_a = 0;
+                uint crc_b = 0;
+                if (payload.Length > 0)
+                {
+                    for (int i = indexStart; i < length; i++)
+                    {
+                        crc_a += payload[i];
+                        crc_b += crc_a;
+                    }
+                    crc_a &= 0xff;
+                    crc_b &= 0xff;
+                }
+                return (ushort)(crc_a | (crc_b << 8));
+            }
         }
 
         private byte classId;
@@ -31,29 +172,8 @@ namespace Heliosky.IoT.GPS.UBX
             if (attr == null)
                 throw new NotSupportedException(String.Format("This class ({0}) does not declare UBXMessageAttribute, thus cannot be instantiated.", typeInfo.FullName));
 
-            MapProperty(realType);
-
             this.classId = attr.ClassID;
             this.messageId = attr.MessageID;
-        }
-
-        private static void MapProperty(Type t)
-        {
-            if (propertyMapper.Keys.Contains(t))
-                return;
-
-            var typeInfo = t.GetTypeInfo();
-
-            var listOfDeclaredProperties = from prop in typeInfo.DeclaredProperties
-                                           let attr = prop.GetCustomAttribute<UBXFieldAttribute>()
-                                           where attr != null
-                                           orderby attr.Index
-                                           select new { Property = prop, Size = Marshal.SizeOf(prop.PropertyType) };
-
-            propertyMapper.Add(t, new UBXMessageDefinition() {
-                PropertyMap = listOfDeclaredProperties.Select(x=> x.Property).ToList(),
-                PayloadSize = (short)listOfDeclaredProperties.Sum(x => x.Size)
-            });
         }
 
         public byte[] ToBinaryData()
@@ -69,7 +189,7 @@ namespace Heliosky.IoT.GPS.UBX
 
             foreach (var prop in propertyDef.PropertyMap)
             {
-                wrt.Write(prop.PropertyType, prop.GetValue(this));
+                wrt.Write(prop.Property.PropertyType, prop.Property.GetValue(this));
             }
 
             wrt.Flush();
@@ -81,8 +201,8 @@ namespace Heliosky.IoT.GPS.UBX
             str = new MemoryStream();
             wrt = new BinaryWriter(str);
 
-            wrt.Write((byte)0xB5); // Header 1
-            wrt.Write((byte)0x62); // Header 2
+            wrt.Write(Header1); // Header 1
+            wrt.Write(Header2); // Header 2
             wrt.Write(data, 0, data.Length); // ClassID MessageID Payload
             wrt.Write(checksum); // Checksum
             
@@ -90,24 +210,33 @@ namespace Heliosky.IoT.GPS.UBX
         }
 
 
-        private static ushort GetChecksum(byte[] payload)
+    }
+
+    public static class BinaryReaderHelper
+    {
+        private static Dictionary<Type, MethodInfo> methodList;
+
+        static BinaryReaderHelper()
         {
-            unchecked
-            {
-                uint crc_a = 0;
-                uint crc_b = 0;
-                if (payload.Length > 0)
-                {
-                    for(int i = 0; i < payload.Length; i++)
-                    { 
-                        crc_a += payload[i];
-                        crc_b += crc_a;
-                    }
-                    crc_a &= 0xff;
-                    crc_b &= 0xff;
-                }
-                return (ushort)(crc_a | (crc_b << 8));
-            }
+            var typeMapping = from method in typeof(BinaryReader).GetTypeInfo().DeclaredMethods
+                              let parameters = method.GetParameters()
+                              where parameters.Length == 0 
+                                 && method.Name.Contains("Read") 
+                                 && method.Name != "Read"
+                                 && method.IsPublic == true
+                              select new { ReturnType = method.ReturnType, Method = method };
+
+            methodList = typeMapping.ToDictionary(k => k.ReturnType, v => v.Method);
+        }
+
+        public static object Read(this BinaryReader rdr, Type targetType)
+        {
+            if (!methodList.Keys.Contains(targetType))
+                throw new NotSupportedException(String.Format("Cannot deserialize type {0} using BinaryReader", targetType.FullName));
+
+            var method = methodList[targetType];
+
+            return method.Invoke(rdr, null);
         }
     }
 

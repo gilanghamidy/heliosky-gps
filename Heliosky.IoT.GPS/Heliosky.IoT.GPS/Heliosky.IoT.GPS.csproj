@@ -120,6 +120,7 @@
     <Compile Include="NMEASerialGPS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UBXAttributes.cs" />
+    <Compile Include="UBX\UBXException.cs" />
     <Compile Include="UBX\UBXModelBase.cs" />
     <Compile Include="UBXSerialGPS.cs" />
     <Compile Include="UBX\Acknowledge.cs" />
