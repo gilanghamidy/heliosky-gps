@@ -25,7 +25,7 @@ namespace Heliosky.IoT.GPS.SampleApp
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private SerialGPS gps;
+        private NMEASerialGPS gps;
 
         public MainPage()
         {
@@ -36,7 +36,7 @@ namespace Heliosky.IoT.GPS.SampleApp
         {
             string aqs = SerialDevice.GetDeviceSelector();
             var dis = await DeviceInformation.FindAllAsync(aqs);
-            gps = new SerialGPS(dis[0]);
+            gps = new NMEASerialGPS(dis[0]);
             gps.FixDataReceived += Gps_FixDataReceived;
             gps.UARTConfiguration = new ConfigUARTPort()
             {

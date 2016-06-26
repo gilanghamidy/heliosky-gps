@@ -37,7 +37,7 @@ namespace Heliosky.IoT.GPS.Test
                                0x03, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0xBC, 0x5E };
 
-            Assert.AreEqual(correct.Length, generated_data.Length);
+            Assert.AreEqual(correct.Length, generated_data.Length, "Content Length");
             
             for(int i = 0; i < correct.Length; i++)
             {

@@ -18,8 +18,8 @@ namespace Heliosky.IoT.GPS.UBX
 
         public enum CharacterLengthType : byte
         {
-            Bit7 = 3,
-            Bit8 = 4
+            Bit7 = 2,
+            Bit8 = 3
         }
 
         public enum ParityType : byte

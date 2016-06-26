@@ -117,11 +117,13 @@
     <Compile Include="NMEAObjectParser.cs" />
     <Compile Include="NMEAParser.cs" />
     <Compile Include="Position.cs" />
-    <Compile Include="SerialGPS.cs" />
+    <Compile Include="NMEASerialGPS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UBXAttributes.cs" />
-    <Compile Include="UBXModelBase.cs" />
-    <Compile Include="UBXModels.cs" />
+    <Compile Include="UBX\UBXModelBase.cs" />
+    <Compile Include="UBXSerialGPS.cs" />
+    <Compile Include="UBX\Acknowledge.cs" />
+    <Compile Include="UBX\ConfigPort.cs" />
     <EmbeddedResource Include="Properties\Heliosky.IoT.GPS.rd.xml" />
   </ItemGroup>
   <ItemGroup>

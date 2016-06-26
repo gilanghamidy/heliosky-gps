@@ -3,14 +3,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS
+namespace Heliosky.IoT.GPS.UBX
 {
     public abstract class UBXModelBase
     {
-        private static Dictionary<Type, List<PropertyInfo>> propertyMapper = new Dictionary<Type, List<PropertyInfo>>();
+        private static Dictionary<Type, UBXMessageDefinition> propertyMapper = new Dictionary<Type, UBXMessageDefinition>();
+
+        private struct UBXMessageDefinition
+        {
+            public List<PropertyInfo> PropertyMap { get; set; }
+            public short PayloadSize { get; set; }
+        }
 
         private byte classId;
         private byte messageId;
@@ -41,21 +48,26 @@ namespace Heliosky.IoT.GPS
                                            let attr = prop.GetCustomAttribute<UBXFieldAttribute>()
                                            where attr != null
                                            orderby attr.Index
-                                           select prop;
+                                           select new { Property = prop, Size = Marshal.SizeOf(prop.PropertyType) };
 
-            propertyMapper.Add(t, listOfDeclaredProperties.ToList());
+            propertyMapper.Add(t, new UBXMessageDefinition() {
+                PropertyMap = listOfDeclaredProperties.Select(x=> x.Property).ToList(),
+                PayloadSize = (short)listOfDeclaredProperties.Sum(x => x.Size)
+            });
         }
 
         public byte[] ToBinaryData()
         {
             MemoryStream str = new MemoryStream();
-
+            var propertyDef = propertyMapper[this.GetType()];
             str.WriteByte(classId);
             str.WriteByte(messageId);
+            
 
             BinaryWriter wrt = new BinaryWriter(str);
+            wrt.Write((short)propertyDef.PayloadSize);
 
-            foreach (var prop in propertyMapper[this.GetType()])
+            foreach (var prop in propertyDef.PropertyMap)
             {
                 wrt.Write(prop.PropertyType, prop.GetValue(this));
             }
@@ -69,13 +81,14 @@ namespace Heliosky.IoT.GPS
             str = new MemoryStream();
             wrt = new BinaryWriter(str);
 
-            wrt.Write(0xB5); // Header 1
-            wrt.Write(0x62); // Header 2
+            wrt.Write((byte)0xB5); // Header 1
+            wrt.Write((byte)0x62); // Header 2
             wrt.Write(data, 0, data.Length); // ClassID MessageID Payload
             wrt.Write(checksum); // Checksum
             
             return str.ToArray();
         }
+
 
         private static ushort GetChecksum(byte[] payload)
         {
@@ -106,7 +119,7 @@ namespace Heliosky.IoT.GPS
         {
             var typeMapping = from method in typeof(BinaryWriter).GetTypeInfo().DeclaredMethods
                               let parameters = method.GetParameters()
-                              where parameters.Length == 1
+                              where parameters.Length == 1 && method.Name == "Write"
                               select new { Parameter = parameters[0], Method = method };
 
             methodList = typeMapping.ToDictionary(k => k.Parameter.ParameterType, v => v.Method);

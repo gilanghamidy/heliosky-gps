@@ -55,7 +55,7 @@ namespace Heliosky.IoT.GPS
         public FixData Data { get; set; }
     }
 
-    public class SerialGPS
+    public class NMEASerialGPS
     {
         private DeviceInformation deviceInfo;
         private SerialDevice serialPort;
@@ -70,7 +70,7 @@ namespace Heliosky.IoT.GPS
 
         //private Thread driverThread;
 
-        public SerialGPS(DeviceInformation deviceInfo)
+        public NMEASerialGPS(DeviceInformation deviceInfo)
         {
             this.deviceInfo = deviceInfo;
             running = false;
