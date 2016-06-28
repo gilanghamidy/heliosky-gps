@@ -120,7 +120,7 @@ namespace Heliosky.IoT.GPS.UBX
         {
             var typeInfo = t.GetTypeInfo();
 
-            var listOfDeclaredProperties = from prop in TypeExtensions.GetProperties(t)
+            var listOfDeclaredProperties = from prop in TypeExtensions.GetProperties(t, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                                            let attr = prop.GetCustomAttribute<UBXFieldAttribute>()
                                            where attr != null
                                            orderby attr.Index
