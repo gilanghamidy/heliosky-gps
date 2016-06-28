@@ -56,12 +56,17 @@ namespace Heliosky.IoT.GPS.SampleApp
 
             statusTextBox.Text = "GPS init completed";
 
+            gps.Listen();
+
             UBX.ConfigMessage cfg_msg = new UBX.ConfigMessage()
             {
                 ClassID = 0x01,
                 MessageID = 0x02,
                 Rate = 2
             };
+
+            gps.TransmitMessage(cfg_msg);
+            
         }
 
         private void Gps_FixDataReceived(object sender, FixDataReceivedEventArgs e)

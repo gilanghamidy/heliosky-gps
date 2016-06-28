@@ -116,6 +116,11 @@ namespace Heliosky.IoT.GPS.UBX
             }
         }
 
+        public static bool KnownMessageType(byte classId, byte messageId)
+        {
+            return parsableTypeIndex.Keys.Contains(new UBXMessageIndex(classId, messageId));
+        }
+
         private static UBXMessageDefinition GenerateDefinition(Type t, UBXMessageAttribute metadata)
         {
             var typeInfo = t.GetTypeInfo();

@@ -19,12 +19,18 @@ namespace Heliosky.IoT.GPS.UBX
     [UBXMessage(0x05, 0x01, MessageType.Receive)]
     public class Acknowledge : AcknowledgeBase
     {
-
+        public override string ToString()
+        {
+            return String.Format("ACK => ClassID {0} MessageID {1}", ClassID, MessageID);
+        }
     }
 
     [UBXMessage(0x05, 0x00, MessageType.Receive)]
     public class NotAcknowledge : AcknowledgeBase
     {
-
+        public override string ToString()
+        {
+            return String.Format("NOT-ACK => ClassID {0} MessageID {1}", ClassID, MessageID);
+        }
     }
 }

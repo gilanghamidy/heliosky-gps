@@ -30,5 +30,32 @@ namespace Heliosky.IoT.GPS.UBX
         [UBXField(7)]
         public uint VerticalAccuracy { get; set; }
 
+        public double Latitude
+        {
+            get { return LatitudeValue / 10000000.0; }
+        }
+
+        public double Longitude
+        {
+            get { return LongitudeValue / 10000000.0; }
+        }
+
+        public override string ToString()
+        {
+            StringBuilder bldr = new StringBuilder();
+
+            bldr.AppendLine("Navigation Geodesic Position");
+            bldr.AppendLine("Latitude: " + Latitude);
+            bldr.AppendLine("Longitude: " + Longitude);
+            bldr.AppendLine("Height Above Sea Level: " + (HeightAboveSeaLevel / 1000.0) + " m");
+            bldr.AppendLine("Height Above Ellipsoid: " + (HeightAboveEllipsoid / 1000.0) + " m");
+            bldr.AppendLine("Horizontal Accuracy: " + (HorizontalAccuracy / 1000.0) + " m");
+            bldr.AppendLine("Vertical Accuracy: " + (VerticalAccuracy / 1000.0) + " m");
+            bldr.AppendLine("Time of Week: " + TimeMillisOfWeek + " ms");
+
+
+            return bldr.ToString();
+        }
+
     }
 }
