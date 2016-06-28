@@ -58,7 +58,7 @@ namespace Heliosky.IoT.GPS.UBX
         public uint BaudRate { get; set; }
 
         [UBXField(6)]
-        public ushort InputProtocolMask { get; private set; }
+        private ushort InputProtocolMask { get; set; }
 
         [UBXField(7)]
         public ushort OutputProtocolMask { get; private set; }
