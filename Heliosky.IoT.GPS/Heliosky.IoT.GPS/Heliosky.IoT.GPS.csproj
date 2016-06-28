@@ -110,6 +110,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Attributes.cs" />
+    <Compile Include="DebugHelper.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="Models.cs" />
     <Compile Include="DegreeTypes.cs" />
@@ -120,6 +121,7 @@
     <Compile Include="NMEASerialGPS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UBXAttributes.cs" />
+    <Compile Include="UBX\ConfigMessage.cs" />
     <Compile Include="UBX\UBXException.cs" />
     <Compile Include="UBX\UBXModelBase.cs" />
     <Compile Include="UBXSerialGPS.cs" />

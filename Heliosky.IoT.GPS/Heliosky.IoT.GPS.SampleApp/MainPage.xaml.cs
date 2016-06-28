@@ -25,7 +25,7 @@ namespace Heliosky.IoT.GPS.SampleApp
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private NMEASerialGPS gps;
+        private UBXSerialGPS gps;
 
         public MainPage()
         {
@@ -36,17 +36,32 @@ namespace Heliosky.IoT.GPS.SampleApp
         {
             string aqs = SerialDevice.GetDeviceSelector();
             var dis = await DeviceInformation.FindAllAsync(aqs);
-            gps = new NMEASerialGPS(dis[0]);
-            gps.FixDataReceived += Gps_FixDataReceived;
-            gps.UARTConfiguration = new ConfigUARTPort()
+
+            UBX.ConfigPort cfg_prt = new UBX.ConfigPort()
             {
                 PortID = 1,
+                StopBit = UBX.ConfigPort.StopBitType.OneStop,
+                Parity = UBX.ConfigPort.ParityType.NoParity,
+                CharacterLength = UBX.ConfigPort.CharacterLengthType.Bit8,
                 BaudRate = 115200,
-                Mode = ConfigUARTPort.DefaultMode
+                InputProtocol = UBX.ConfigPort.Protocol.UBX,
+                OutputProtocol = UBX.ConfigPort.Protocol.UBX
             };
-            gps.Start();
+
+            gps = new UBXSerialGPS(dis[0], cfg_prt);
 
             statusTextBox.Text = "GPS Started";
+
+            await gps.Start();
+
+            statusTextBox.Text = "GPS init completed";
+
+            UBX.ConfigMessage cfg_msg = new UBX.ConfigMessage()
+            {
+                ClassID = 0x01,
+                MessageID = 0x02,
+                Rate = 2
+            };
         }
 
         private void Gps_FixDataReceived(object sender, FixDataReceivedEventArgs e)
