@@ -122,6 +122,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UBXAttributes.cs" />
     <Compile Include="UBX\ConfigRate.cs" />
+    <Compile Include="UBX\NavigationClock.cs" />
+    <Compile Include="UBX\NavigationDOP.cs" />
+    <Compile Include="UBX\NavigationECEFPosition.cs" />
     <Compile Include="UBX\NavigationGeodeticPosition.cs" />
     <Compile Include="UBX\ConfigMessage.cs" />
     <Compile Include="UBX\UBXException.cs" />

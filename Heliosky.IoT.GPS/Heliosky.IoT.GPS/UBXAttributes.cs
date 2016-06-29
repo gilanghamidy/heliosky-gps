@@ -10,7 +10,8 @@ namespace Heliosky.IoT.GPS
     enum MessageType
     {
         Send = 0x1,
-        Receive = 0x2
+        Receive = 0x2,
+        Poll = 0x4
     }
 
     [System.AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]

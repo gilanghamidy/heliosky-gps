@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Heliosky.IoT.GPS.UBX
 {
-    [UBXMessage(0x01, 0x02, MessageType.Receive)]
+    [UBXMessage(0x01, 0x02, MessageType.Receive | MessageType.Poll)]
     public class NavigationGeodeticPosition : UBXModelBase
     {
         [UBXField(1)]
