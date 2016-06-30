@@ -25,14 +25,13 @@ namespace Heliosky.IoT.GPS
 
         public const uint BufferLength = 10240;
 
-        
-
         private DeviceInformation deviceInfo;
         private SerialDevice serialPort;
         private CancellationTokenSource cancelToken;
         private UBX.ConfigPort portConfig;
 
         private Queue<UBX.UBXModelBase> transmitQueue = new Queue<UBX.UBXModelBase>();
+        
 
         private uint baudRate;
 
@@ -56,6 +55,8 @@ namespace Heliosky.IoT.GPS
             serialPort.StopBits = SerialStopBitCount.One;
             serialPort.DataBits = 8;
             serialPort.Handshake = SerialHandshake.None;
+
+            
 
             cancelToken = new CancellationTokenSource();
 
@@ -141,7 +142,9 @@ namespace Heliosky.IoT.GPS
                 serialPort.BaudRate = baudRate;
 
                 reader = new DataReader(serialPort.InputStream);
-                uint bytesRead = await reader.LoadAsync(BufferLength);
+
+                var cancelToken = new CancellationTokenSource(1500);
+                uint bytesRead = await reader.LoadAsync(BufferLength).AsTask(cancelToken.Token);
 
                 if (bytesRead == 0)
                     return false;
@@ -156,6 +159,11 @@ namespace Heliosky.IoT.GPS
                     return true;
                 }
                     
+            }
+            catch(TaskCanceledException)
+            {
+                // Timeout
+                return false;
             }
             finally
             {
@@ -181,7 +189,6 @@ namespace Heliosky.IoT.GPS
                     serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
                     serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
                     
-
                     dataReader = new DataReader(serialPort.InputStream);
                     dataReader.InputStreamOptions = InputStreamOptions.Partial;
 
@@ -195,6 +202,7 @@ namespace Heliosky.IoT.GPS
 
                         await TransmitMessage();
 
+                        // Longer timeout to prevent package drop
                         CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 10);
                         var loadingTask = dataReader.LoadAsync(BufferLength).AsTask(timeoutToken.Token);
 
@@ -299,8 +307,6 @@ namespace Heliosky.IoT.GPS
                                 }
 
                             }
-
-
                         }
 
                         try
@@ -351,7 +357,6 @@ namespace Heliosky.IoT.GPS
 #if DEBUG
                 Debug.WriteLine("Transmitting package completed");
 #endif
-
             }
         }
 
@@ -385,6 +390,18 @@ namespace Heliosky.IoT.GPS
                     writer = null;
                 }
             }
+        }
+
+        private async Task<T> Expect<T>() where T : UBX.UBXModelBase
+        {
+            return null;
+        }
+
+        public async Task<T> PollMessage<T>() where T : UBX.UBXModelBase
+        {
+            byte[] pollMessage = UBX.UBXModelBase.GetPollMessage<T>();
+
+            return null;
         }
     }
 }

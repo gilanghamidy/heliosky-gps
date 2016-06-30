@@ -33,6 +33,7 @@ namespace Heliosky.IoT.GPS.UBX
             public UBXMessageAttribute Metadata { get; set; }
             public List<UBXFieldDefinition> PropertyMap { get; set; }
             public short? PayloadSize { get; set; }
+            public byte[] PollMessage { get; set; }
         }
 
        
@@ -261,7 +262,38 @@ namespace Heliosky.IoT.GPS.UBX
             return str.ToArray();
         }
 
+        public static byte[] GetPollMessage<T>() where T : UBXModelBase
+        {
+            var propertyDef = propertyMapper[typeof(T)];
 
+            if ((propertyDef.Metadata.Type & MessageType.Poll) == 0)
+                throw new NotSupportedException(String.Format("The type {0} cannot be used as poll request.", typeof(T).FullName));
+
+            if (propertyDef.PollMessage != null)
+                return propertyDef.PollMessage;
+
+            MemoryStream str = new MemoryStream();
+            str.WriteByte(propertyDef.Metadata.ClassID);
+            str.WriteByte(propertyDef.Metadata.MessageID);
+            str.WriteByte(0);
+            str.WriteByte(0);
+            str.Flush();
+            byte[] data = str.ToArray();
+            var checksum = GetChecksum(data);
+
+            str.Dispose();
+            str = new MemoryStream();
+            var wrt = new BinaryWriter(str);
+
+            wrt.Write(Header1); // Header 1
+            wrt.Write(Header2); // Header 2
+            wrt.Write(data, 0, data.Length); // ClassID MessageID Payload
+            wrt.Write(checksum); // Checksum
+
+            // Store locally
+            propertyDef.PollMessage = str.ToArray();
+            return propertyDef.PollMessage;
+        }
     }
 
     public static class BinaryReaderHelper
