@@ -43,7 +43,7 @@ namespace Heliosky.IoT.GPS.SampleApp
                 StopBit = UBX.ConfigPort.StopBitType.OneStop,
                 Parity = UBX.ConfigPort.ParityType.NoParity,
                 CharacterLength = UBX.ConfigPort.CharacterLengthType.Bit8,
-                BaudRate = 115200,
+                BaudRate = 9600,
                 InputProtocol = UBX.ConfigPort.Protocol.UBX,
                 OutputProtocol = UBX.ConfigPort.Protocol.UBX
             };
@@ -66,7 +66,15 @@ namespace Heliosky.IoT.GPS.SampleApp
             };
 
             gps.TransmitMessage(cfg_msg);
-            
+
+            UBX.ConfigMessage cfg_msg_sv = new UBX.ConfigMessage()
+            {
+                ClassID = 0x01,
+                MessageID = 0x30,
+                Rate = 2
+            };
+
+            gps.TransmitMessage(cfg_msg_sv);
         }
 
         private void Gps_FixDataReceived(object sender, FixDataReceivedEventArgs e)

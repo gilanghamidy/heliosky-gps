@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -109,7 +110,36 @@ namespace Heliosky.IoT.GPS.UBX
 
                 foreach(var property in ubxType.PropertyMap)
                 {
-                    property.Property.SetValue(retVal, reader.Read(property.Property.PropertyType));
+                    if(!property.ListType)
+                    {
+                        // If property is not a list type, parse normally using its underlying type
+                        property.Property.SetValue(retVal, reader.Read(property.Property.PropertyType));
+                    }
+                    else
+                    {
+                        // If property is a list type, infer the type content
+                        var typeInfoOfPropertyType = property.Property.PropertyType.GetTypeInfo();
+                        var theStructureType = typeInfoOfPropertyType.GenericTypeArguments[0]; // Get the T of IEnumerable<T>
+
+                        // Get the size of the structure
+                        var structureSize = UBXStructureMapper.PayloadSizeOf(theStructureType);
+
+                        // Get the item count
+                        var itemCount = Convert.ToInt32(ubxType.PropertyMap[property.ListIndexRef.Value].Property.GetValue(retVal));
+
+                        // Construct list of it
+                        var theList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(theStructureType));
+
+
+                        for(int i = 0; i < itemCount; i++)
+                        {
+                            var buf = reader.ReadBytes(structureSize);
+                            theList.Add(UBXStructureMapper.TryParse(theStructureType, buf));
+                        }
+
+                        // Set the value to property
+                        property.Property.SetValue(retVal, theList);
+                    }
                 }
 
                 return retVal;
@@ -117,6 +147,10 @@ namespace Heliosky.IoT.GPS.UBX
             catch(KeyNotFoundException)
             {
                 throw new UnknownMessageException(string.Format("Unknown message with Class: {0}, MessageID: {1}", classId, messageId));
+            }
+            catch(NotSupportedException ex)
+            {
+                throw new UnknownMessageException(string.Format("Failed to parse Class: {0}, MessageID: {1}", classId, messageId), ex);
             }
         }
 
@@ -323,6 +357,41 @@ namespace Heliosky.IoT.GPS.UBX
                 PayloadSize = (short)listOfDeclaredProperties.Sum(x => x.Size),
                 MessageClass = t
             };
+        }
+
+        internal static int PayloadSizeOf(Type t)
+        {
+            try
+            {
+                return structureDictionary[t].PayloadSize;
+            }
+            catch(KeyNotFoundException)
+            {
+                throw new NotSupportedException(String.Format("Cannot find type {0} as UBXStructure type", t.FullName));
+            }
+        }
+
+        internal static object TryParse(Type t, byte[] payload)
+        {
+            try
+            {
+                var definition = structureDictionary[t];
+
+                BinaryReader reader = new BinaryReader(new MemoryStream(payload));
+
+                object retVal = Activator.CreateInstance(t);
+
+                foreach (var property in definition.PropertyMap)
+                {
+                    property.Property.SetValue(retVal, reader.Read(property.Property.PropertyType));
+                }
+
+                return retVal;
+            }
+            catch (KeyNotFoundException)
+            {
+                throw new NotSupportedException(String.Format("Cannot find type {0} as UBXStructure type", t.FullName));
+            }
         }
     }
 }

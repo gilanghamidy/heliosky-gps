@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Heliosky.IoT.GPS.UBX
 {
     [UBXMessage(0x01, 0x30, MessageType.Receive | MessageType.Poll)]
-    public class NavigationSpaceVehicleInfo
+    public class NavigationSpaceVehicleInfo : UBXModelBase
     {
         [UBXField(0)]
         public uint TimeMillisOfWeek { get; set; }
@@ -23,7 +23,12 @@ namespace Heliosky.IoT.GPS.UBX
 
         [UBXField(4)]
         [UBXList(1)]
-        private IEnumerable<SpaceVehicleChannelItem> ChannelList { get; set; }
+        public IEnumerable<SpaceVehicleChannelItem> ChannelList { get; set; }
+
+        public override string ToString()
+        {
+            return "Navigation Space Vehicle Info. Count: " + ChannelList.Count();
+        }
     }
 
     [UBXStructure]

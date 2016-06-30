@@ -195,7 +195,7 @@ namespace Heliosky.IoT.GPS
 
                         await TransmitMessage();
 
-                        CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 3);
+                        CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 10);
                         var loadingTask = dataReader.LoadAsync(BufferLength).AsTask(timeoutToken.Token);
 
 
@@ -235,7 +235,7 @@ namespace Heliosky.IoT.GPS
                                     break;
                             }
 
-#if DEBUG
+#if DEBUG && VERBOSE
                             Debug.Write(currentByte.ToString("X") + ' ');
 #endif
                             
@@ -244,7 +244,7 @@ namespace Heliosky.IoT.GPS
                             {
                                 currentState = 0;
                                 currentlyProcessed.Clear();
-#if DEBUG
+#if DEBUG && VERBOSE
                                 Debug.WriteLine("");
 #endif
                             }
@@ -270,7 +270,9 @@ namespace Heliosky.IoT.GPS
 
 #if DEBUG
                                     Debug.WriteLine("Package received: " + currentlyProcessed.Count + " bytes");
+#if VERBOSE
                                     DebugHelper.PrintArray(arr);
+#endif
 #endif
                                     var package = UBX.UBXModelBase.TryParse(arr);
 
@@ -287,7 +289,7 @@ namespace Heliosky.IoT.GPS
                                 catch (Exception ex)
                                 {
 #if DEBUG
-                                    Debug.WriteLine("Exception occured during parsing: " + ex);
+                                    Debug.WriteLine("Exception occured during parsing: " + ex, ex);
 #endif               
                                 }
                                 finally
