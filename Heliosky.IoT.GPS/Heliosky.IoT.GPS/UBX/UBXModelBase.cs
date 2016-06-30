@@ -269,4 +269,9 @@ namespace Heliosky.IoT.GPS.UBX
             method.Invoke(wrt, new object[] { value });
         }
     }
+
+    public static class UBXStructureMapper
+    {
+
+    }
 }

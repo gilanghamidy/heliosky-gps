@@ -41,4 +41,28 @@ namespace Heliosky.IoT.GPS
 
         public int Index { get; private set; }
     }
+
+    [System.AttributeUsage(AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
+    sealed class UBXStructureAttribute : Attribute
+    {
+
+
+        // This is a positional argument
+        public UBXStructureAttribute()
+        {
+
+        }
+    }
+
+    [System.AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = true)]
+    sealed class UBXListAttribute : Attribute
+    {
+
+        public UBXListAttribute(int itemCountField)
+        {
+            this.ItemCountField = itemCountField;
+        }
+
+        public int ItemCountField { get; private set; }
+    }
 }
