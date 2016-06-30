@@ -127,6 +127,7 @@
     <Compile Include="UBX\NavigationECEFPosition.cs" />
     <Compile Include="UBX\NavigationGeodeticPosition.cs" />
     <Compile Include="UBX\ConfigMessage.cs" />
+    <Compile Include="UBX\UBXEventArgs.cs" />
     <Compile Include="UBX\UBXException.cs" />
     <Compile Include="UBX\UBXModelBase.cs" />
     <Compile Include="UBXSerialGPS.cs" />

@@ -25,6 +25,8 @@ namespace Heliosky.IoT.GPS
 
         public const uint BufferLength = 10240;
 
+        
+
         private DeviceInformation deviceInfo;
         private SerialDevice serialPort;
         private CancellationTokenSource cancelToken;
@@ -49,7 +51,7 @@ namespace Heliosky.IoT.GPS
 
             serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
             serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
-            serialPort.BaudRate = 115200;
+            serialPort.BaudRate = 9600;
             serialPort.Parity = SerialParity.None;
             serialPort.StopBits = SerialStopBitCount.One;
             serialPort.DataBits = 8;
@@ -178,6 +180,7 @@ namespace Heliosky.IoT.GPS
                 {
                     serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
                     serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
+                    
 
                     dataReader = new DataReader(serialPort.InputStream);
                     dataReader.InputStreamOptions = InputStreamOptions.Partial;
@@ -186,96 +189,56 @@ namespace Heliosky.IoT.GPS
                     byte currentState = 0;
                     ushort payloadLength = 0;
 
-                    
-
                     while(true)
                     {
                         cancelToken.Token.ThrowIfCancellationRequested();
 
-                        // Transmit the queue
-                        while(transmitQueue.Count != 0)
-                        {
-                            var currentTransmission = transmitQueue.Dequeue();
-#if DEBUG
-                            Debug.WriteLine("Transmitting package start: " + currentTransmission.ToString());
-#endif
+                        await TransmitMessage();
 
-                            await WriteData(currentTransmission.ToBinaryData());
-
-#if DEBUG
-                            Debug.WriteLine("Transmitting package completed");
-#endif
-
-                        }
-                        CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout);
+                        CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 3);
                         var loadingTask = dataReader.LoadAsync(BufferLength).AsTask(timeoutToken.Token);
-                        
 
-                        while(dataReader.UnconsumedBufferLength != 0)
+
+                        while (dataReader.UnconsumedBufferLength != 0)
                         {
                             // Consume buffer while waiting for data
                             byte currentByte = dataReader.ReadByte();
                             bool fail = false;
 
-                            // State machine
-                            switch(currentState)
+                            currentlyProcessed.Enqueue(currentByte);
+
+                            // State machine:
+                            // 0: Header 1
+                            // 1: Header 2
+                            // 2: Class ID
+                            // 3: Message ID
+                            // 4: Least significant byte of size
+                            // 5: Most significant byte of size
+                            // 6: Payload with 1st byte of checksum
+                            // 7: 2nd byte of checksum
+                            // 8: Processing
+                            switch (currentState)
                             {
                                 case 0: // Start with Header 1
-                                    if(currentByte == UBX.UBXModelBase.Header1)
-                                    {
-                                        currentlyProcessed.Enqueue(currentByte);
-                                        currentState++;
-                                    }
-                                    else
-                                    {
+                                    if (currentByte != UBX.UBXModelBase.Header1)
                                         fail = true;
-                                    }
                                     break;
                                 case 1: // Followed by Header 2, otherwise fail
-                                    if (currentByte == UBX.UBXModelBase.Header2)
-                                    {
-                                        currentlyProcessed.Enqueue(currentByte);
-                                        currentState++;
-                                    }
-                                    else
-                                    {
+                                    if (currentByte != UBX.UBXModelBase.Header2)
                                         fail = true;
-                                    }
                                     break;
-                                case 2: // Followed by Class ID
-                                    currentlyProcessed.Enqueue(currentByte);
-                                    currentState++;
-                                    break;
-                                case 3: // Followed by Message ID
-                                    goto case 2;
                                 case 4: // Retrieve Size
                                     payloadLength = currentByte;
-                                    goto case 2;
+                                    break;
                                 case 5: // Continue retrieve size
                                     payloadLength |= ((ushort)(currentByte << 8)); // Second byte of payload length
-                                    goto case 2;
-                                case 6: // Retrieve the payload
-                                    if(payloadLength > 0)
-                                    {
-                                        currentlyProcessed.Enqueue(currentByte);
-                                        payloadLength--;
-                                    }
-                                    else
-                                    {
-                                        // First checksum
-                                        currentlyProcessed.Enqueue(currentByte);
-                                        currentState++;
-                                    }
                                     break;
-                                case 7: // First checksum
-                                    goto case 2;
-
                             }
 
 #if DEBUG
                             Debug.Write(currentByte.ToString("X") + ' ');
 #endif
-
+                            
                             // Reset processing if it encounter invalid header
                             if (fail)
                             {
@@ -285,25 +248,44 @@ namespace Heliosky.IoT.GPS
                                 Debug.WriteLine("");
 #endif
                             }
+                            else if(currentState != 6)
+                            {
+                                // Increment state
+                                currentState++;
+                            }
+                            else if(currentState == 6)
+                            {
+                                // Loading the payload
+                                if (payloadLength > 0)
+                                    payloadLength--;
+                                else
+                                    currentState++;
+                            }
 
                             if (currentState == 8)
                             {
                                 try
                                 {
-                                    Debug.WriteLine("Package received: " + currentlyProcessed.Count + " bytes");
                                     var arr = currentlyProcessed.ToArray();
-                                    DebugHelper.PrintArray(arr);
-                                    var package = UBX.UBXModelBase.TryParse(arr);
-                                    Debug.WriteLine(package.ToString());
-                                }
-                                catch(UBX.UBXException ex)
-                                {
+
 #if DEBUG
-                                    Debug.WriteLine("Failed parsing UBX package: " + ex);                               
+                                    Debug.WriteLine("Package received: " + currentlyProcessed.Count + " bytes");
+                                    DebugHelper.PrintArray(arr);
+#endif
+                                    var package = UBX.UBXModelBase.TryParse(arr);
+
+#if DEBUG
+                                    Debug.WriteLine(package.ToString());
 #endif
                                 }
-                                catch(Exception ex)
-                                { 
+                                catch (UBX.UBXException ex)
+                                {
+#if DEBUG
+                                    Debug.WriteLine("Failed parsing UBX package: " + ex);
+#endif
+                                }
+                                catch (Exception ex)
+                                {
 #if DEBUG
                                     Debug.WriteLine("Exception occured during parsing: " + ex);
 #endif               
@@ -313,23 +295,20 @@ namespace Heliosky.IoT.GPS
                                     currentlyProcessed.Clear();
                                     currentState = 0;
                                 }
-                                
+
                             }
 
 
                         }
-                        
+
                         try
                         {
                             uint readedBuffer = await loadingTask;
                         }
-                        catch(TaskCanceledException)
+                        catch (TaskCanceledException)
                         {
 
                         }
-#if DEBUG
-                        Debug.WriteLine("#");
-#endif
                     }
                 }
             }
@@ -354,6 +333,23 @@ namespace Heliosky.IoT.GPS
                 }
 
                 running = false;
+            }
+        }
+
+        private async Task TransmitMessage()
+        {
+            // Transmit the queue
+            while (transmitQueue.Count != 0)
+            {
+                var currentTransmission = transmitQueue.Dequeue();
+#if DEBUG
+                Debug.WriteLine("Transmitting package start: " + currentTransmission.ToString());
+#endif
+                await WriteData(currentTransmission.ToBinaryData());
+#if DEBUG
+                Debug.WriteLine("Transmitting package completed");
+#endif
+
             }
         }
 
