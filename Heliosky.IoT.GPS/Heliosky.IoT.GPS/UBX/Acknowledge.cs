@@ -9,10 +9,10 @@ namespace Heliosky.IoT.GPS.UBX
     
     public class AcknowledgeBase : UBXModelBase
     {
-        [UBXField(1)]
+        [UBXField(0)]
         public byte ClassID { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public byte MessageID { get; set; }
     }
 

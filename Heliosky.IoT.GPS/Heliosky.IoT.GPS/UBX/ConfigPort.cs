@@ -42,31 +42,31 @@ namespace Heliosky.IoT.GPS.UBX
             Mode = 0x10;
         }
 
-        [UBXField(1)]
+        [UBXField(0)]
         public byte PortID { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public byte Reserved1 { get; private set; }
 
-        [UBXField(3)]
+        [UBXField(2)]
         public ushort TXReady { get; set; }
 
-        [UBXField(4)]
+        [UBXField(3)]
         public uint Mode { get; private set; }
 
-        [UBXField(5)]
+        [UBXField(4)]
         public uint BaudRate { get; set; }
 
-        [UBXField(6)]
+        [UBXField(5)]
         private ushort InputProtocolMask { get; set; }
 
-        [UBXField(7)]
+        [UBXField(6)]
         public ushort OutputProtocolMask { get; private set; }
 
-        [UBXField(8)]
+        [UBXField(7)]
         public ushort Reserved4 { get; private set; }
 
-        [UBXField(9)]
+        [UBXField(8)]
         public ushort Reserved5 { get; private set; }
 
         public Protocol InputProtocol

@@ -9,19 +9,19 @@ namespace Heliosky.IoT.GPS.UBX
     [UBXMessage(0x01, 0x01, MessageType.Receive | MessageType.Poll)]
     public class NavigationECEFPosition : UBXModelBase
     {
-        [UBXField(1)]
+        [UBXField(0)]
         public uint TimeMillisOfWeek { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public int X { get; set; }
 
-        [UBXField(3)]
+        [UBXField(2)]
         public int Y { get; set; }
 
-        [UBXField(4)]
+        [UBXField(3)]
         public int Z { get; set; }
 
-        [UBXField(5)]
+        [UBXField(4)]
         public uint Accuracy { get; set; }
     }
 }

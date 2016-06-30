@@ -9,6 +9,15 @@ using System.Threading.Tasks;
 
 namespace Heliosky.IoT.GPS.UBX
 {
+    internal struct UBXFieldDefinition
+    {
+        public PropertyInfo Property { get; set; }
+        public int Size { get; set; }
+        public bool ListType { get; set; }
+        public int? ListIndexRef { get; set; }
+    }
+
+
     public abstract class UBXModelBase
     {
         public const byte Header1 = 0xB5;
@@ -22,15 +31,10 @@ namespace Heliosky.IoT.GPS.UBX
             public Type MessageClass { get; set; }
             public UBXMessageAttribute Metadata { get; set; }
             public List<UBXFieldDefinition> PropertyMap { get; set; }
-            public short PayloadSize { get; set; }
+            public short? PayloadSize { get; set; }
         }
 
-        private struct UBXFieldDefinition
-        {
-            public PropertyInfo Property { get; set; }
-            public int Size { get; set; }
-        }
-
+       
         private struct UBXMessageIndex
         {
             public short PayloadSize { get; set; }
@@ -127,14 +131,23 @@ namespace Heliosky.IoT.GPS.UBX
 
             var listOfDeclaredProperties = from prop in TypeExtensions.GetProperties(t, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                                            let attr = prop.GetCustomAttribute<UBXFieldAttribute>()
+                                           let info = prop.PropertyType.GetTypeInfo()
+                                           let listType = info.IsGenericType && typeof(IEnumerable<>) == info.GetGenericTypeDefinition()
+                                           let listIndex = listType ? prop.GetCustomAttribute<UBXListAttribute>().ItemCountField : (int?)null
                                            where attr != null
                                            orderby attr.Index
-                                           select new UBXFieldDefinition() { Property = prop, Size = Marshal.SizeOf(prop.PropertyType) };
+                                           select new UBXFieldDefinition()
+                                           {
+                                               Property = prop,
+                                               Size = listType ? 0 : Marshal.SizeOf(prop.PropertyType),
+                                               ListType = listType,
+                                               ListIndexRef = listIndex
+                                           };
 
             return new UBXMessageDefinition()
             {
                 PropertyMap = listOfDeclaredProperties.ToList(),
-                PayloadSize = (short)listOfDeclaredProperties.Sum(x => x.Size),
+                PayloadSize = listOfDeclaredProperties.Aggregate<UBXFieldDefinition, bool>(false, (x, y) => x || y.ListType) ? null : (short?)listOfDeclaredProperties.Sum(x => x.Size),
                 MessageClass = t,
                 Metadata = metadata
             };
@@ -272,6 +285,44 @@ namespace Heliosky.IoT.GPS.UBX
 
     public static class UBXStructureMapper
     {
+        private class UBXStructureDefinition
+        {
+            public Type MessageClass { get; set; }
+            public List<UBXFieldDefinition> PropertyMap { get; set; }
+            public short PayloadSize { get; set; }
+        }
 
+        private static Dictionary<Type, UBXStructureDefinition> structureDictionary;
+
+        static UBXStructureMapper()
+        {
+            Assembly thisAssembly = typeof(NMEAParser).GetTypeInfo().Assembly;
+
+            var items = from t in thisAssembly.GetTypes()
+                        let attr = t.GetTypeInfo().GetCustomAttribute(typeof(UBXStructureAttribute)) as UBXStructureAttribute
+                        where attr != null
+                        let definition = GenerateDefinition(t)
+                        select definition;
+
+            structureDictionary = items.ToDictionary(k => k.MessageClass, v => v);
+        }
+
+        private static UBXStructureDefinition GenerateDefinition(Type t)
+        {
+            var typeInfo = t.GetTypeInfo();
+
+            var listOfDeclaredProperties = from prop in TypeExtensions.GetProperties(t, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                                           let attr = prop.GetCustomAttribute<UBXFieldAttribute>()
+                                           where attr != null
+                                           orderby attr.Index
+                                           select new UBXFieldDefinition() { Property = prop, Size = Marshal.SizeOf(prop.PropertyType) };
+
+            return new UBXStructureDefinition()
+            {
+                PropertyMap = listOfDeclaredProperties.ToList(),
+                PayloadSize = (short)listOfDeclaredProperties.Sum(x => x.Size),
+                MessageClass = t
+            };
+        }
     }
 }

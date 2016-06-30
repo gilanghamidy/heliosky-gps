@@ -9,19 +9,19 @@ namespace Heliosky.IoT.GPS.UBX
     [UBXMessage(0x01, 0x22, MessageType.Receive | MessageType.Poll)]
     public class NavigationClock : UBXModelBase
     {
-        [UBXField(1)]
+        [UBXField(0)]
         public uint TimeMillisOfWeek { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public int ClockBias { get; set; }
 
-        [UBXField(3)]
+        [UBXField(2)]
         public int ClockDrift { get; set; }
 
-        [UBXField(4)]
+        [UBXField(3)]
         public uint TimeAccurracy { get; set; }
 
-        [UBXField(5)]
+        [UBXField(4)]
         public uint FrequencyAccuracy { get; set; }
     }
 }

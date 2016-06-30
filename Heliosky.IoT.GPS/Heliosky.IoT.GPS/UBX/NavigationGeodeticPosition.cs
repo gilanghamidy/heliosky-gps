@@ -9,25 +9,25 @@ namespace Heliosky.IoT.GPS.UBX
     [UBXMessage(0x01, 0x02, MessageType.Receive | MessageType.Poll)]
     public class NavigationGeodeticPosition : UBXModelBase
     {
-        [UBXField(1)]
+        [UBXField(0)]
         public uint TimeMillisOfWeek { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public int LongitudeValue { get; private set; }
 
-        [UBXField(3)]
+        [UBXField(2)]
         public int LatitudeValue { get; private set; }
 
-        [UBXField(4)]
+        [UBXField(3)]
         public int HeightAboveEllipsoid { get; set; }
 
-        [UBXField(5)]
+        [UBXField(4)]
         public int HeightAboveSeaLevel { get; set; }
 
-        [UBXField(6)]
+        [UBXField(5)]
         public uint HorizontalAccuracy { get; set; }
 
-        [UBXField(7)]
+        [UBXField(6)]
         public uint VerticalAccuracy { get; set; }
 
         public double Latitude

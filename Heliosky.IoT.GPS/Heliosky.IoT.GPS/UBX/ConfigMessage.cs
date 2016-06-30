@@ -9,13 +9,13 @@ namespace Heliosky.IoT.GPS.UBX
     [UBXMessage(0x06, 0x01, MessageType.Send | MessageType.Receive)]
     public class ConfigMessage : UBXModelBase
     {
-        [UBXField(1)]
+        [UBXField(0)]
         public byte ClassID { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public byte MessageID { get; set; }
 
-        [UBXField(3)]
+        [UBXField(2)]
         public byte Rate { get; set; }
     }
 }

@@ -15,13 +15,13 @@ namespace Heliosky.IoT.GPS.UBX
             GPSTime = 1
         }
 
-        [UBXField(1)]
+        [UBXField(0)]
         public ushort MeasurementRate { get; set; }
 
-        [UBXField(2)]
+        [UBXField(1)]
         public ushort NavigationRate { get; set; }
 
-        [UBXField(3)]
+        [UBXField(2)]
         public ushort ReferenceTimeValue { get; private set; }
 
         public ReferenceTimeMode ReferenceTime
