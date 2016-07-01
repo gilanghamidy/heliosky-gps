@@ -23,6 +23,80 @@ namespace Heliosky.IoT.GPS
             115200
         };
 
+        private class ExpectingList
+        {
+            private Dictionary<Type, ExpectingContext> expectingList = new Dictionary<Type, ExpectingContext>();
+
+            public async Task<T> ExpectAsync<T>() where T : UBX.UBXModelBase
+            {
+                var theType = typeof(T);
+                if (expectingList.ContainsKey(theType))
+                    throw new InvalidOperationException(String.Format("Already expecting type {0}", theType.FullName));
+
+                var expectingContext = new ExpectingContext();
+                expectingList.Add(theType, expectingContext);
+
+                await expectingContext.WaitForResponse();
+
+                expectingList.Remove(theType);
+
+                return (T)expectingContext.ResponseReceived;
+            }
+
+            public void CancelExpectAsync<T>()
+            {
+                var theType = typeof(T);
+                if (!expectingList.ContainsKey(theType))
+                    return;
+
+                var expectingContext = expectingList[theType];
+                expectingList.Remove(theType);
+                expectingContext.Cancel();
+            }
+
+            public void NotifyIfExpected(UBX.UBXModelBase obj)
+            {
+                var theType = obj.GetType();
+                try
+                {
+                    var expectingContext = expectingList[theType];
+                    expectingContext.NotifyResponseReceived(obj);
+                }
+                catch(KeyNotFoundException)
+                {
+                    return;
+                }
+            }
+        }
+
+        private class ExpectingContext
+        {
+            private CancellationTokenSource notifyTokenSource;
+            
+            public ExpectingContext()
+            {
+                notifyTokenSource = new CancellationTokenSource();
+            }
+
+            public UBX.UBXModelBase ResponseReceived { get; private set; }
+            
+            public async Task WaitForResponse()
+            {
+                await Task.Delay(-1, notifyTokenSource.Token);
+            }
+
+            public void NotifyResponseReceived(UBX.UBXModelBase obj)
+            {
+                this.ResponseReceived = obj;
+                notifyTokenSource.Cancel();
+            }
+
+            public void Cancel()
+            {
+                notifyTokenSource.Cancel();
+            }
+        }
+
         public const uint BufferLength = 10240;
 
         private DeviceInformation deviceInfo;
@@ -31,8 +105,9 @@ namespace Heliosky.IoT.GPS
         private UBX.ConfigPort portConfig;
 
         private Queue<UBX.UBXModelBase> transmitQueue = new Queue<UBX.UBXModelBase>();
-        
 
+        private ExpectingList expectingList = new ExpectingList();
+        
         private uint baudRate;
 
         bool running = false;
@@ -283,7 +358,7 @@ namespace Heliosky.IoT.GPS
 #endif
 #endif
                                     var package = UBX.UBXModelBase.TryParse(arr);
-
+                                    expectingList.NotifyIfExpected(package);
 #if DEBUG
                                     Debug.WriteLine(package.ToString());
 #endif
@@ -392,16 +467,15 @@ namespace Heliosky.IoT.GPS
             }
         }
 
-        private async Task<T> Expect<T>() where T : UBX.UBXModelBase
-        {
-            return null;
-        }
-
         public async Task<T> PollMessage<T>() where T : UBX.UBXModelBase
         {
             byte[] pollMessage = UBX.UBXModelBase.GetPollMessage<T>();
 
-            return null;
+            // Send the data
+            await WriteData(pollMessage);
+
+            // Wait until expected response comes
+            return await expectingList.ExpectAsync<T>();
         }
     }
 }
