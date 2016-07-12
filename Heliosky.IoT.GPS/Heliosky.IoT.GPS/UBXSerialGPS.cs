@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -15,7 +16,6 @@ namespace Heliosky.IoT.GPS
     {
         public static readonly uint[] AvailableBaudRate =
         {
-            4800,
             9600,
             19200,
             38400,
@@ -43,7 +43,7 @@ namespace Heliosky.IoT.GPS
                 return (T)expectingContext.ResponseReceived;
             }
 
-            public void CancelExpectAsync<T>()
+            public void AbortExpectAsync<T>()
             {
                 var theType = typeof(T);
                 if (!expectingList.ContainsKey(theType))
@@ -82,7 +82,14 @@ namespace Heliosky.IoT.GPS
             
             public async Task WaitForResponse()
             {
-                await Task.Delay(-1, notifyTokenSource.Token);
+                try
+                {
+                    await Task.Delay(-1, notifyTokenSource.Token);
+                }
+                catch(TaskCanceledException)
+                {
+
+                }
             }
 
             public void NotifyResponseReceived(UBX.UBXModelBase obj)
@@ -102,6 +109,7 @@ namespace Heliosky.IoT.GPS
         private DeviceInformation deviceInfo;
         private SerialDevice serialPort;
         private CancellationTokenSource cancelToken;
+
         private UBX.ConfigPort portConfig;
 
         private Queue<UBX.UBXModelBase> transmitQueue = new Queue<UBX.UBXModelBase>();
@@ -109,6 +117,7 @@ namespace Heliosky.IoT.GPS
         private ExpectingList expectingList = new ExpectingList();
         
         private uint baudRate;
+        private Task runningListenTask;
 
         bool running = false;
 
@@ -125,20 +134,46 @@ namespace Heliosky.IoT.GPS
 
             serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
             serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
-            serialPort.BaudRate = 9600;
             serialPort.Parity = SerialParity.None;
             serialPort.StopBits = SerialStopBitCount.One;
             serialPort.DataBits = 8;
+            //serialPort.BaudRate = 9600;
+            serialPort.BaudRate = this.baudRate;
             serialPort.Handshake = SerialHandshake.None;
 
-            
-
-            cancelToken = new CancellationTokenSource();
+            // Autodetect current baud rate
+            await AutodetectPortSpeed();
+            //this.baudRate = 115200;
 
             // Config the port
             await TryConfigPort();
 
-            running = true;
+            
+            this.runningListenTask = Listen();
+        }
+
+        private async Task AutodetectPortSpeed()
+        {
+            foreach(uint currentBaud in AvailableBaudRate)
+            {
+#if DEBUG
+                Debug.WriteLine(String.Format("Probing speed: {0}", currentBaud));
+#endif
+
+                var success = await ProbePortSpeed(currentBaud);
+                if(success)
+                {
+                    this.baudRate = currentBaud;
+#if DEBUG
+                    Debug.WriteLine(String.Format("Success probing speed: {0}", currentBaud));
+#endif
+                    break;
+                }
+
+#if DEBUG
+                Debug.WriteLine(String.Format("Failed probing speed: {0}", currentBaud));
+#endif
+            }
         }
 
         private async Task TryConfigPort()
@@ -151,271 +186,267 @@ namespace Heliosky.IoT.GPS
             await WriteData(configData);
 
             // Do some delay
-            await Task.Delay(2000);
+            await Task.Delay(5000);
 
             // Restart the port speed if it was changed
             if(portConfig.BaudRate != baudRate)
             {
                 bool success = false;
                 uint targetBaud = portConfig.BaudRate;
-                do
+                
+#if DEBUG
+                Debug.WriteLine(String.Format("Probing speed: {0}", targetBaud));
+#endif
+                success = await ProbePortSpeed(targetBaud);
+
+                if(!success)
                 {
 #if DEBUG
-                    Debug.WriteLine(String.Format("Probing speed: {0}", targetBaud));
+                    Debug.WriteLine(String.Format("Failed probing speed: {0}", targetBaud));
+                    Debug.WriteLine("Fallback to previous speed");
 #endif
 
-                    success = await ProbePortSpeed(targetBaud);
-
-                    if(!success)
-                    {
-#if DEBUG
-                        Debug.WriteLine(String.Format("Failed probing speed: {0}", targetBaud));
-#endif
-
-                        var nextItem = (from baud in AvailableBaudRate
-                                        where baud < targetBaud
-                                        orderby baud descending
-                                        select baud).FirstOrDefault();
-
-                        if(nextItem == 0)
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            targetBaud = nextItem;
-                        }
-                    }
                 }
-                while (!success);
-
-                if(success)
+                else
                 {
 #if DEBUG
                     Debug.WriteLine(String.Format("Success probing speed: {0}", targetBaud));
 #endif
                     baudRate = targetBaud;
-                    serialPort.BaudRate = targetBaud;
-                }
-                else
-                {
-#if DEBUG
-                    Debug.WriteLine("Fallback to speed 9600");
-#endif
-                    baudRate = AvailableBaudRate[1];
-                    serialPort.BaudRate = baudRate;
                 }
             }
         }
 
-        private async Task<bool> ProbePortSpeed(uint baudRate)
+        private async Task<bool> ProbePortSpeed(uint testingBaudRate)
         {
-            DataReader reader = null;
-
             try
             {
-                serialPort.BaudRate = baudRate;
+                serialPort.BaudRate = testingBaudRate;
 
-                reader = new DataReader(serialPort.InputStream);
+                this.runningListenTask = Listen();
 
-                var cancelToken = new CancellationTokenSource(1500);
-                uint bytesRead = await reader.LoadAsync(BufferLength).AsTask(cancelToken.Token);
+                await Task.Delay(2000);
 
-                if (bytesRead == 0)
-                    return false;
+                var task = this.PollMessageAsync<UBX.NavigationClock>();
+                
+                if(await Task.WhenAny(task, Task.Delay(5000)) == task)
+                {
+                    var result = await task;
+
+                    if (result == null)
+                        return false;
+                    else
+                        return true;
+                }
                 else
                 {
-#if DEBUG
-                    var buf = new byte[bytesRead];
-                    reader.ReadBytes(buf);
-                    DebugHelper.PrintArray(buf);
-#endif
-
-                    return true;
+                    this.AbortPollMessageAsync<UBX.NavigationClock>();
+                    return false;
                 }
-                    
-            }
-            catch(TaskCanceledException)
-            {
-                // Timeout
-                return false;
             }
             finally
             {
-                if(reader != null)
-                {
-                    reader.DetachStream();
-                    reader.Dispose();
-                    reader = null;
-                }
+                await Stop();
             }
         }
 
-        public async void Listen()
+        public async Task Stop()
         {
+            cancelToken.Cancel();
+
+            try
+            {
+                // Wait indefinitely until the listening loop has shutted down completely
+                await runningListenTask;
+            }
+            catch(TaskCanceledException)
+            {
+
+            }
+            finally
+            {
+                runningListenTask = null;
+            }
+
+        }
+
+        private async Task Listen()
+        {
+            if (running)
+                return;
+
+            running = true;
+
             DataReader dataReader = null;
+            cancelToken = new CancellationTokenSource();
 #if DEBUG
             Debug.WriteLine("Listening start...");
 #endif
             try
             {
-                if(running)
-                {
-                    serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
-                    serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
+                serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
+                serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
                     
-                    dataReader = new DataReader(serialPort.InputStream);
-                    dataReader.InputStreamOptions = InputStreamOptions.Partial;
+                dataReader = new DataReader(serialPort.InputStream);
 
-                    Queue<byte> currentlyProcessed = new Queue<byte>(1024);
-                    byte currentState = 0;
-                    ushort payloadLength = 0;
+                dataReader.InputStreamOptions = InputStreamOptions.Partial;
 
-                    while(true)
+                Queue<byte> currentlyProcessed = new Queue<byte>(1024);
+                byte currentState = 0;
+                ushort payloadLength = 0;
+
+                while(true)
+                {
+                    cancelToken.Token.ThrowIfCancellationRequested();
+
+                    await TransmitMessage();
+
+                    // Longer timeout to prevent package drop
+                    CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 10);
+                    var loadingTask = dataReader.LoadAsync(BufferLength).AsTask(timeoutToken.Token);
+
+                    while (dataReader.UnconsumedBufferLength != 0)
                     {
-                        cancelToken.Token.ThrowIfCancellationRequested();
+                        // Consume buffer while waiting for data
+                        byte currentByte = dataReader.ReadByte();
+                        bool fail = false;
 
-                        await TransmitMessage();
+                        currentlyProcessed.Enqueue(currentByte);
 
-                        // Longer timeout to prevent package drop
-                        CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 10);
-                        var loadingTask = dataReader.LoadAsync(BufferLength).AsTask(timeoutToken.Token);
-
-
-                        while (dataReader.UnconsumedBufferLength != 0)
+                        // State machine:
+                        // 0: Header 1
+                        // 1: Header 2
+                        // 2: Class ID
+                        // 3: Message ID
+                        // 4: Least significant byte of size
+                        // 5: Most significant byte of size
+                        // 6: Payload with 1st byte of checksum
+                        // 7: 2nd byte of checksum
+                        // 8: Processing
+                        switch (currentState)
                         {
-                            // Consume buffer while waiting for data
-                            byte currentByte = dataReader.ReadByte();
-                            bool fail = false;
-
-                            currentlyProcessed.Enqueue(currentByte);
-
-                            // State machine:
-                            // 0: Header 1
-                            // 1: Header 2
-                            // 2: Class ID
-                            // 3: Message ID
-                            // 4: Least significant byte of size
-                            // 5: Most significant byte of size
-                            // 6: Payload with 1st byte of checksum
-                            // 7: 2nd byte of checksum
-                            // 8: Processing
-                            switch (currentState)
-                            {
-                                case 0: // Start with Header 1
-                                    if (currentByte != UBX.UBXModelBase.Header1)
-                                        fail = true;
-                                    break;
-                                case 1: // Followed by Header 2, otherwise fail
-                                    if (currentByte != UBX.UBXModelBase.Header2)
-                                        fail = true;
-                                    break;
-                                case 4: // Retrieve Size
-                                    payloadLength = currentByte;
-                                    break;
-                                case 5: // Continue retrieve size
-                                    payloadLength |= ((ushort)(currentByte << 8)); // Second byte of payload length
-                                    break;
-                            }
+                            case 0: // Start with Header 1
+                                if (currentByte != UBX.UBXModelBase.Header1)
+                                    fail = true;
+                                break;
+                            case 1: // Followed by Header 2, otherwise fail
+                                if (currentByte != UBX.UBXModelBase.Header2)
+                                    fail = true;
+                                break;
+                            case 4: // Retrieve Size
+                                payloadLength = currentByte;
+                                break;
+                            case 5: // Continue retrieve size
+                                payloadLength |= ((ushort)(currentByte << 8)); // Second byte of payload length
+                                break;
+                        }
 
 #if DEBUG && VERBOSE
-                            Debug.Write(currentByte.ToString("X") + ' ');
+                        Debug.Write(currentByte.ToString("X") + ' ');
 #endif
                             
-                            // Reset processing if it encounter invalid header
-                            if (fail)
-                            {
-                                currentState = 0;
-                                currentlyProcessed.Clear();
+                        // Reset processing if it encounter invalid header
+                        if (fail)
+                        {
+                            currentState = 0;
+                            currentlyProcessed.Clear();
 #if DEBUG && VERBOSE
-                                Debug.WriteLine("");
+                            Debug.WriteLine("");
 #endif
-                            }
-                            else if(currentState != 6)
-                            {
-                                // Increment state
+                        }
+                        else if(currentState != 6)
+                        {
+                            // Increment state
+                            currentState++;
+                        }
+                        else if(currentState == 6)
+                        {
+                            // Loading the payload
+                            if (payloadLength > 0)
+                                payloadLength--;
+                            else
                                 currentState++;
-                            }
-                            else if(currentState == 6)
-                            {
-                                // Loading the payload
-                                if (payloadLength > 0)
-                                    payloadLength--;
-                                else
-                                    currentState++;
-                            }
+                        }
 
-                            if (currentState == 8)
+                        if (currentState == 8)
+                        {
+                            try
                             {
-                                try
-                                {
-                                    var arr = currentlyProcessed.ToArray();
+                                var arr = currentlyProcessed.ToArray();
 
 #if DEBUG
-                                    Debug.WriteLine("Package received: " + currentlyProcessed.Count + " bytes");
+                                Debug.WriteLine("Package received: " + currentlyProcessed.Count + " bytes");
 #if VERBOSE
-                                    DebugHelper.PrintArray(arr);
+                                DebugHelper.PrintArray(arr);
 #endif
 #endif
-                                    var package = UBX.UBXModelBase.TryParse(arr);
-                                    expectingList.NotifyIfExpected(package);
+                                var package = UBX.UBXModelBase.TryParse(arr);
+                                expectingList.NotifyIfExpected(package);
 #if DEBUG
-                                    Debug.WriteLine(package.ToString());
+                                Debug.WriteLine(package.ToString());
 #endif
-                                }
-                                catch (UBX.UBXException ex)
-                                {
-#if DEBUG
-                                    Debug.WriteLine("Failed parsing UBX package: " + ex);
-#endif
-                                }
-                                catch (Exception ex)
-                                {
-#if DEBUG
-                                    Debug.WriteLine("Exception occured during parsing: " + ex, ex);
-#endif               
-                                }
-                                finally
-                                {
-                                    currentlyProcessed.Clear();
-                                    currentState = 0;
-                                }
-
                             }
-                        }
-
-                        try
-                        {
-                            uint readedBuffer = await loadingTask;
-                        }
-                        catch (TaskCanceledException)
-                        {
+                            catch (UBX.UBXException ex)
+                            {
+#if DEBUG
+                                Debug.WriteLine("Failed parsing UBX package: " + ex);
+#endif
+                            }
+                            catch (Exception ex)
+                            {
+#if DEBUG
+                                Debug.WriteLine("Exception occured during parsing: " + ex, ex);
+#endif               
+                            }
+                            finally
+                            {
+                                currentlyProcessed.Clear();
+                                currentState = 0;
+                            }
 
                         }
                     }
+
+                    try
+                    {
+                        uint readedBuffer = await loadingTask;
+                    }
+                    catch (TaskCanceledException)
+                    {
+
+                    }
+                    catch(Exception ex)
+                    {
+#if DEBUG
+                        Debug.WriteLine("Unexpected Exception when awaiting loading: " + ex);
+#endif
+                    }
                 }
+                
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
 #if DEBUG
                 Debug.WriteLine("Listening port stopped!");
+#endif
+            }
+            catch(Exception ex)
+            {
+#if DEBUG
+                Debug.WriteLine("Unexpected Exception happen during the loop: " + ex);
 #endif
             }
             finally
             {
                 if (dataReader != null)
                 {
+                    dataReader.DetachStream();
                     dataReader.Dispose();
                     dataReader = null;
                 }
 
-                if (serialPort != null)
-                {
-                    serialPort.Dispose();
-                    serialPort = null;
-                }
-
                 running = false;
+                cancelToken = null;
             }
         }
 
@@ -467,7 +498,7 @@ namespace Heliosky.IoT.GPS
             }
         }
 
-        public async Task<T> PollMessage<T>() where T : UBX.UBXModelBase
+        public async Task<T> PollMessageAsync<T>() where T : UBX.UBXModelBase
         {
             byte[] pollMessage = UBX.UBXModelBase.GetPollMessage<T>();
 
@@ -476,6 +507,11 @@ namespace Heliosky.IoT.GPS
 
             // Wait until expected response comes
             return await expectingList.ExpectAsync<T>();
+        }
+
+        public void AbortPollMessageAsync<T>() where T : UBX.UBXModelBase
+        {
+            expectingList.AbortExpectAsync<T>();
         }
     }
 }

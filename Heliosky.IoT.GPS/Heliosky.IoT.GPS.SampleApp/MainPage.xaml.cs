@@ -43,7 +43,7 @@ namespace Heliosky.IoT.GPS.SampleApp
                 StopBit = UBX.ConfigPort.StopBitType.OneStop,
                 Parity = UBX.ConfigPort.ParityType.NoParity,
                 CharacterLength = UBX.ConfigPort.CharacterLengthType.Bit8,
-                BaudRate = 9600,
+                BaudRate = 115200,
                 InputProtocol = UBX.ConfigPort.Protocol.UBX,
                 OutputProtocol = UBX.ConfigPort.Protocol.UBX
             };
@@ -56,8 +56,6 @@ namespace Heliosky.IoT.GPS.SampleApp
 
             statusTextBox.Text = "GPS init completed";
 
-            gps.Listen();
-
             UBX.ConfigMessage cfg_msg = new UBX.ConfigMessage()
             {
                 ClassID = 0x01,
@@ -67,14 +65,17 @@ namespace Heliosky.IoT.GPS.SampleApp
 
             gps.TransmitMessage(cfg_msg);
 
-            UBX.ConfigMessage cfg_msg_sv = new UBX.ConfigMessage()
-            {
-                ClassID = 0x01,
-                MessageID = 0x30,
-                Rate = 2
-            };
+            statusTextBox.Text = "Polling message Monitor Receiver Status";
+            UBX.NavigationClock resp = null;//await gps.PollMessageAsync<UBX.NavigationClock>();
 
-            gps.TransmitMessage(cfg_msg_sv);
+            if(resp != null)
+            {
+                statusTextBox.Text = "Poll message success: " + resp.TimeMillisOfWeek;
+            }
+            else
+            {
+                statusTextBox.Text = "Poll message failed";
+            }
         }
 
         private void Gps_FixDataReceived(object sender, FixDataReceivedEventArgs e)

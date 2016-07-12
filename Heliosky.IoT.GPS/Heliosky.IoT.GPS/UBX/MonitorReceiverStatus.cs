@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Heliosky.IoT.GPS.UBX
 {
-    [UBXMessage(0x0A, 0x21, MessageType.Receive | MessageType.Poll)]
+    [UBXMessage(0x0A, 0x21, MessageType.Receive)]
     public class MonitorReceiverStatus : UBXModelBase
     {
         [UBXField(0)]
