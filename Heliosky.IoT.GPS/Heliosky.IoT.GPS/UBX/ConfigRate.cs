@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Heliosky.IoT.GPS.UBX
 {
+    [UBXConfig]
     [UBXMessage(0x06, 0x08, MessageType.Send | MessageType.Receive)]
     public class ConfigRate : UBXModelBase
     {

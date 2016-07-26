@@ -25,47 +25,112 @@ namespace Heliosky.IoT.GPS
 
         private class ExpectingList
         {
-            private Dictionary<Type, ExpectingContext> expectingList = new Dictionary<Type, ExpectingContext>();
+            
+
+            private Dictionary<ExpectingDescription, ExpectingContext> expectingList = new Dictionary<ExpectingDescription, ExpectingContext>();
 
             public async Task<T> ExpectAsync<T>() where T : UBX.UBXModelBase
             {
-                var theType = typeof(T);
-                if (expectingList.ContainsKey(theType))
-                    throw new InvalidOperationException(String.Format("Already expecting type {0}", theType.FullName));
+                var expectingDesc = new ExpectingDescription(typeof(T));
 
+                if (expectingList.ContainsKey(expectingDesc))
+                    throw new InvalidOperationException(String.Format("Already expecting type {0}", typeof(T).FullName));
+
+                
                 var expectingContext = new ExpectingContext();
-                expectingList.Add(theType, expectingContext);
+
+                expectingList.Add(expectingDesc, expectingContext);
 
                 await expectingContext.WaitForResponse();
 
-                expectingList.Remove(theType);
+                expectingList.Remove(expectingDesc);
 
                 return (T)expectingContext.ResponseReceived;
             }
 
+            public async Task<bool> ExpectAcknowledgeAsync(byte classId, byte messageId)
+            {
+                return false;
+            }
+
             public void AbortExpectAsync<T>()
             {
-                var theType = typeof(T);
-                if (!expectingList.ContainsKey(theType))
+                var expectingDesc = new ExpectingDescription(typeof(T));
+                if (!expectingList.ContainsKey(expectingDesc))
                     return;
 
-                var expectingContext = expectingList[theType];
-                expectingList.Remove(theType);
+                var expectingContext = expectingList[expectingDesc];
+                expectingList.Remove(expectingDesc);
                 expectingContext.Cancel();
             }
 
             public void NotifyIfExpected(UBX.UBXModelBase obj)
             {
-                var theType = obj.GetType();
+                var expectingDesc = new ExpectingDescription(obj.GetType());
                 try
                 {
-                    var expectingContext = expectingList[theType];
+                    var expectingContext = expectingList[expectingDesc];
                     expectingContext.NotifyResponseReceived(obj);
                 }
                 catch(KeyNotFoundException)
                 {
                     return;
                 }
+            }
+        }
+
+        private class ExpectingDescription
+        {
+            public enum ExpectingMode
+            {
+                Regular,
+                Acknowledge
+            }
+
+            private Type expectingType;
+            private byte classId, messageId;
+            private ExpectingMode expectedMessageMode;
+
+            public ExpectingDescription(Type messageType)
+            {
+                this.expectingType = messageType;
+                this.expectedMessageMode = ExpectingMode.Regular;
+            }
+
+            public ExpectingDescription(byte classId, byte messageId)
+            {
+                this.classId = classId;
+                this.messageId = messageId;
+                this.expectedMessageMode = ExpectingMode.Acknowledge;
+            }
+
+            public override bool Equals(object obj)
+            {
+                if(base.Equals(obj))
+                    return true;
+                else
+                {
+                    ExpectingDescription desc = obj as ExpectingDescription;
+                    if(desc != null)
+                    {
+                        if(this.expectedMessageMode == desc.expectedMessageMode)
+                        {
+                            if (this.expectedMessageMode == ExpectingMode.Regular)
+                                return this.expectingType.Equals(desc.expectingType);
+                            else
+                                return this.classId == desc.classId && this.messageId == desc.messageId;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                if (expectedMessageMode == ExpectingMode.Regular)
+                    return expectedMessageMode.GetHashCode();
+                else
+                    return 123 * classId * messageId;
             }
         }
 
@@ -107,8 +172,8 @@ namespace Heliosky.IoT.GPS
         public const uint BufferLength = 10240;
 
         private DeviceInformation deviceInfo;
-        private SerialDevice serialPort;
         private CancellationTokenSource cancelToken;
+        private SerialDevice activeSerialPort;
 
         private UBX.ConfigPort portConfig;
 
@@ -126,21 +191,24 @@ namespace Heliosky.IoT.GPS
             this.deviceInfo = deviceInfo;
             this.portConfig = portConfig;
             this.baudRate = AvailableBaudRate[1]; // Default BaudRate
+            this.activeSerialPort = null;
+        }
+
+        private static async Task<SerialDevice> InitializeSerialPort(DeviceInformation info, uint baudRate)
+        {
+            var retSerialPort = await SerialDevice.FromIdAsync(info.Id);
+
+            retSerialPort.Parity = SerialParity.None;
+            retSerialPort.StopBits = SerialStopBitCount.One;
+            retSerialPort.DataBits = 8;
+            retSerialPort.BaudRate = baudRate;
+            retSerialPort.Handshake = SerialHandshake.None;
+
+            return retSerialPort;
         }
 
         public async Task Start()
         {
-            serialPort = await SerialDevice.FromIdAsync(deviceInfo.Id);
-
-            serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
-            serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
-            serialPort.Parity = SerialParity.None;
-            serialPort.StopBits = SerialStopBitCount.One;
-            serialPort.DataBits = 8;
-            //serialPort.BaudRate = 9600;
-            serialPort.BaudRate = this.baudRate;
-            serialPort.Handshake = SerialHandshake.None;
-
             // Autodetect current baud rate
             await AutodetectPortSpeed();
             //this.baudRate = 115200;
@@ -148,8 +216,7 @@ namespace Heliosky.IoT.GPS
             // Config the port
             await TryConfigPort();
 
-            
-            this.runningListenTask = Listen();
+            this.runningListenTask = Listen(this.baudRate);
         }
 
         private async Task AutodetectPortSpeed()
@@ -181,39 +248,23 @@ namespace Heliosky.IoT.GPS
             if (portConfig == null)
                 return;
 
-            // Write configuration
-            var configData = portConfig.ToBinaryData();
-            await WriteData(configData);
-
-            // Do some delay
-            await Task.Delay(5000);
-
-            // Restart the port speed if it was changed
-            if(portConfig.BaudRate != baudRate)
+            try
             {
-                bool success = false;
-                uint targetBaud = portConfig.BaudRate;
-                
-#if DEBUG
-                Debug.WriteLine(String.Format("Probing speed: {0}", targetBaud));
-#endif
-                success = await ProbePortSpeed(targetBaud);
+                this.runningListenTask = Listen(this.baudRate);
 
-                if(!success)
-                {
-#if DEBUG
-                    Debug.WriteLine(String.Format("Failed probing speed: {0}", targetBaud));
-                    Debug.WriteLine("Fallback to previous speed");
-#endif
+                bool success = await this.WriteConfig(portConfig);
 
-                }
-                else
+                if (success)
                 {
+                    this.baudRate = portConfig.BaudRate;
 #if DEBUG
-                    Debug.WriteLine(String.Format("Success probing speed: {0}", targetBaud));
+                    Debug.WriteLine("Success config BaudRate to: {0}", this.baudRate);
 #endif
-                    baudRate = targetBaud;
                 }
+            }
+            finally
+            {
+                await Stop();
             }
         }
 
@@ -221,15 +272,13 @@ namespace Heliosky.IoT.GPS
         {
             try
             {
-                serialPort.BaudRate = testingBaudRate;
-
-                this.runningListenTask = Listen();
+                this.runningListenTask = Listen(testingBaudRate);
 
                 await Task.Delay(2000);
 
                 var task = this.PollMessageAsync<UBX.NavigationClock>();
                 
-                if(await Task.WhenAny(task, Task.Delay(5000)) == task)
+                if(await Task.WhenAny(task, Task.Delay(10000)) == task)
                 {
                     var result = await task;
 
@@ -252,6 +301,9 @@ namespace Heliosky.IoT.GPS
 
         public async Task Stop()
         {
+            if (this.runningListenTask == null)
+                return;
+
             cancelToken.Cancel();
 
             try
@@ -270,26 +322,32 @@ namespace Heliosky.IoT.GPS
 
         }
 
-        private async Task Listen()
+        private async Task Listen(uint baudRate)
         {
             if (running)
                 return;
 
             running = true;
-
             DataReader dataReader = null;
+            DataWriter dataWriter = null;
             cancelToken = new CancellationTokenSource();
+            SerialDevice serialPort = null;
+
 #if DEBUG
             Debug.WriteLine("Listening start...");
 #endif
+
             try
             {
+                serialPort = await InitializeSerialPort(this.deviceInfo, baudRate);
+
                 serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
                 serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
                     
                 dataReader = new DataReader(serialPort.InputStream);
-
                 dataReader.InputStreamOptions = InputStreamOptions.Partial;
+
+                dataWriter = new DataWriter(serialPort.OutputStream);
 
                 Queue<byte> currentlyProcessed = new Queue<byte>(1024);
                 byte currentState = 0;
@@ -299,7 +357,7 @@ namespace Heliosky.IoT.GPS
                 {
                     cancelToken.Token.ThrowIfCancellationRequested();
 
-                    await TransmitMessage();
+                    await WriteQueuedMessages(dataWriter);
 
                     // Longer timeout to prevent package drop
                     CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 10);
@@ -422,7 +480,6 @@ namespace Heliosky.IoT.GPS
 #endif
                     }
                 }
-                
             }
             catch (OperationCanceledException)
             {
@@ -445,12 +502,18 @@ namespace Heliosky.IoT.GPS
                     dataReader = null;
                 }
 
+                if(serialPort != null)
+                {
+                    serialPort.Dispose();
+                    serialPort = null;
+                }
+
                 running = false;
                 cancelToken = null;
             }
         }
 
-        private async Task TransmitMessage()
+        private async Task WriteQueuedMessages(DataWriter writer)
         {
             // Transmit the queue
             while (transmitQueue.Count != 0)
@@ -459,9 +522,9 @@ namespace Heliosky.IoT.GPS
 #if DEBUG
                 Debug.WriteLine("Transmitting package start: " + currentTransmission.ToString());
 #endif
-                await WriteData(currentTransmission.ToBinaryData());
+                uint bytes = await WriteData(writer, currentTransmission.ToBinaryData());
 #if DEBUG
-                Debug.WriteLine("Transmitting package completed");
+                Debug.WriteLine("Transmitting package completed: " + bytes + " bytes written");
 #endif
             }
         }
@@ -471,17 +534,10 @@ namespace Heliosky.IoT.GPS
             transmitQueue.Enqueue(messageToTransmit);
         }
 
-        private async Task<uint> WriteData(byte[] b)
+        private static async Task<uint> WriteData(DataWriter writer, byte[] b)
         {
-            if (serialPort == null)
-                throw new InvalidOperationException("Serial port is not initialized");
-
-            DataWriter writer = null;
-
             try
             {
-                writer = new DataWriter(serialPort.OutputStream);
-
                 writer.WriteBytes(b);
 
                 uint bytesWritten = await writer.StoreAsync();
@@ -489,21 +545,26 @@ namespace Heliosky.IoT.GPS
             }
             finally
             {
-                if(writer != null)
-                {
-                    writer.DetachStream();
-                    writer.Dispose();
-                    writer = null;
-                }
+
             }
+        }
+
+        public async Task<bool> WriteConfig(UBX.UBXModelBase data)
+        {
+            if (!UBX.UBXModelBase.IsConfigMessage(data))
+                throw new NotSupportedException("WriteConfig only available for config type UBX message");
+
+            TransmitMessage(data);
+            var attr = UBX.UBXModelBase.GetMessageAttribute(data);
+            return await expectingList.ExpectAcknowledgeAsync(attr.ClassID, attr.MessageID);
         }
 
         public async Task<T> PollMessageAsync<T>() where T : UBX.UBXModelBase
         {
-            byte[] pollMessage = UBX.UBXModelBase.GetPollMessage<T>();
+            var pollMessage = UBX.UBXModelBase.GetPollMessage<T>();
 
             // Send the data
-            await WriteData(pollMessage);
+            TransmitMessage(pollMessage);
 
             // Wait until expected response comes
             return await expectingList.ExpectAsync<T>();

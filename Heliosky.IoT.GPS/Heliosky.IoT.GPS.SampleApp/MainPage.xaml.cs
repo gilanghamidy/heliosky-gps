@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
+using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Devices.SerialCommunication;
 using Windows.Foundation;
@@ -63,10 +64,21 @@ namespace Heliosky.IoT.GPS.SampleApp
                 Rate = 2
             };
 
-            gps.TransmitMessage(cfg_msg);
+            bool res = await gps.WriteConfig(cfg_msg);
+
+            if(res)
+            {
+                statusTextBox.Text = "Success configuring message";
+                await Task.Delay(5000);
+            }
+            else
+            {
+                statusTextBox.Text = "Failed configuring message";
+                await Task.Delay(5000);
+            }
 
             statusTextBox.Text = "Polling message Monitor Receiver Status";
-            UBX.NavigationClock resp = null;//await gps.PollMessageAsync<UBX.NavigationClock>();
+            UBX.NavigationClock resp = await gps.PollMessageAsync<UBX.NavigationClock>();
 
             if(resp != null)
             {

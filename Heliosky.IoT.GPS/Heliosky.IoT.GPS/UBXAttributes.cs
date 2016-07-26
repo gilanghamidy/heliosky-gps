@@ -29,11 +29,15 @@ namespace Heliosky.IoT.GPS
         public MessageType Type { get; private set; }
     }
 
+    [System.AttributeUsage(AttributeTargets.All, Inherited = false, AllowMultiple = true)]
+    sealed class UBXConfigAttribute : Attribute
+    {
+
+    }
+
     [System.AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
     sealed class UBXFieldAttribute : Attribute
     {
-
-        // This is a positional argument
         public UBXFieldAttribute(int index)
         {
             Index = index;
@@ -45,9 +49,6 @@ namespace Heliosky.IoT.GPS
     [System.AttributeUsage(AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
     sealed class UBXStructureAttribute : Attribute
     {
-
-
-        // This is a positional argument
         public UBXStructureAttribute()
         {
 

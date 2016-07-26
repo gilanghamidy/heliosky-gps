@@ -36,7 +36,6 @@ namespace Heliosky.IoT.GPS.UBX
             public byte[] PollMessage { get; set; }
         }
 
-       
         private struct UBXMessageIndex
         {
             public short PayloadSize { get; set; }
@@ -68,6 +67,14 @@ namespace Heliosky.IoT.GPS.UBX
             public override int GetHashCode()
             {
                 return  this.ClassID * this.MessageID;
+            }
+        }
+
+        private class UBXStaticMessage : UBXModelBase
+        {
+            public UBXStaticMessage(byte[] staticMessage)
+            {
+                base.staticMessage = staticMessage;
             }
         }
 
@@ -155,6 +162,20 @@ namespace Heliosky.IoT.GPS.UBX
             }
         }
 
+        public static bool IsConfigMessage(UBXModelBase message)
+        {
+            var attribute = message.GetType().GetTypeInfo().GetCustomAttribute<UBXConfigAttribute>();
+            if (attribute != null)
+                return true;
+            else
+                return false;
+        }
+        
+        internal static UBXMessageAttribute GetMessageAttribute(UBXModelBase message)
+        {
+            return message.GetType().GetTypeInfo().GetCustomAttribute<UBXMessageAttribute>();
+        }
+
         public static bool KnownMessageType(byte classId, byte messageId)
         {
             return parsableTypeIndex.Keys.Contains(new UBXMessageIndex(classId, messageId));
@@ -215,28 +236,37 @@ namespace Heliosky.IoT.GPS.UBX
 
         private byte classId;
         private byte messageId;
+        private byte[] staticMessage;
 
         protected UBXModelBase()
         {
             var realType = this.GetType();
-            var typeInfo = realType.GetTypeInfo();
-            var attr = typeInfo.GetCustomAttribute<UBXMessageAttribute>();
 
-            if (attr == null)
-                throw new NotSupportedException(String.Format("This class ({0}) does not declare UBXMessageAttribute, thus cannot be instantiated.", typeInfo.FullName));
+            if (realType != typeof(UBXStaticMessage))
+            { 
 
-            this.classId = attr.ClassID;
-            this.messageId = attr.MessageID;
+                var typeInfo = realType.GetTypeInfo();
+                var attr = typeInfo.GetCustomAttribute<UBXMessageAttribute>();
+
+                if (attr == null)
+                    throw new NotSupportedException(String.Format("This class ({0}) does not declare UBXMessageAttribute, thus cannot be instantiated.", typeInfo.FullName));
+
+                this.classId = attr.ClassID;
+                this.messageId = attr.MessageID;
+                this.staticMessage = null;
+            }
         }
 
         public byte[] ToBinaryData()
         {
+            if (staticMessage != null)
+                return staticMessage;
+
             MemoryStream str = new MemoryStream();
             var propertyDef = propertyMapper[this.GetType()];
             str.WriteByte(classId);
             str.WriteByte(messageId);
             
-
             BinaryWriter wrt = new BinaryWriter(str);
             wrt.Write((short)propertyDef.PayloadSize);
 
@@ -262,7 +292,7 @@ namespace Heliosky.IoT.GPS.UBX
             return str.ToArray();
         }
 
-        public static byte[] GetPollMessage<T>() where T : UBXModelBase
+        public static UBXModelBase GetPollMessage<T>() where T : UBXModelBase
         {
             var propertyDef = propertyMapper[typeof(T)];
 
@@ -270,7 +300,7 @@ namespace Heliosky.IoT.GPS.UBX
                 throw new NotSupportedException(String.Format("The type {0} cannot be used as poll request.", typeof(T).FullName));
 
             if (propertyDef.PollMessage != null)
-                return propertyDef.PollMessage;
+                return new UBXStaticMessage(propertyDef.PollMessage);
 
             MemoryStream str = new MemoryStream();
             str.WriteByte(propertyDef.Metadata.ClassID);
@@ -292,7 +322,7 @@ namespace Heliosky.IoT.GPS.UBX
 
             // Store locally
             propertyDef.PollMessage = str.ToArray();
-            return propertyDef.PollMessage;
+            return new UBXStaticMessage(propertyDef.PollMessage);
         }
     }
 
