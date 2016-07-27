@@ -119,17 +119,19 @@ namespace Heliosky.IoT.GPS
             /// Notify any party if waits a message of this type
             /// </summary>
             /// <param name="obj">The message to be notified</param>
-            public void NotifyIfExpected(UBX.UBXModelBase obj)
+            /// <returns>True if there is a party that is waiting for this kind of message, false otherwise.</returns>
+            public bool NotifyIfExpected(UBX.UBXModelBase obj)
             {
                 var expectingDesc = new ExpectingDescription(obj);
                 try
                 {
                     var expectingContext = expectingList[expectingDesc];
                     expectingContext.NotifyResponseReceived(obj);
+                    return true;
                 }
                 catch (KeyNotFoundException)
                 {
-                    return;
+                    return false;
                 }
             }
         }
@@ -623,7 +625,10 @@ namespace Heliosky.IoT.GPS
                                 var package = UBX.UBXModelBase.TryParse(arr);
 
                                 // Notify if any party is waiting this kind of message
-                                expectingList.NotifyIfExpected(package);
+                                if (!expectingList.NotifyIfExpected(package))
+                                {
+                                    OnMessageReceived(package);
+                                }
 #if DEBUG
                                 Debug.WriteLine(package.ToString());
 #endif
@@ -793,8 +798,6 @@ namespace Heliosky.IoT.GPS
 
             // Remove from notification list
             this.transmissionNotification.Remove(data);
-
-
         }
 
         public async Task<T> PollMessageAsync<T>() where T : UBX.UBXModelBase
@@ -811,6 +814,23 @@ namespace Heliosky.IoT.GPS
         public void AbortPollMessageAsync<T>() where T : UBX.UBXModelBase
         {
             expectingList.AbortExpectAsync<T>();
+        }
+
+        public event EventHandler<MessageReceivedEventArgs> MessageReceived;
+
+        protected void OnMessageReceived(UBX.UBXModelBase receivedMessage)
+        {
+            this.MessageReceived?.Invoke(this, new MessageReceivedEventArgs(receivedMessage));
+        }
+    }
+
+    public class MessageReceivedEventArgs : EventArgs
+    {
+        public UBX.UBXModelBase ReceivedMessage { get; private set; }
+
+        public MessageReceivedEventArgs(UBX.UBXModelBase receivedMessage)
+        {
+            this.ReceivedMessage = receivedMessage;
         }
     }
 }

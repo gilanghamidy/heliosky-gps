@@ -9,13 +9,16 @@ using Windows.Devices.Enumeration;
 using Windows.Devices.SerialCommunication;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.Storage.Streams;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Maps;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -27,10 +30,13 @@ namespace Heliosky.IoT.GPS.SampleApp
     public sealed partial class MainPage : Page
     {
         private UBXSerialGPS gps;
+        private MapIcon myLocation;
+        private RandomAccessStreamReference mapIconStreamReference;
 
         public MainPage()
         {
             this.InitializeComponent();
+            mapIconStreamReference = RandomAccessStreamReference.CreateFromUri(new Uri("ms-appx:///Assets/MapPin.png"));
         }
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
@@ -50,6 +56,8 @@ namespace Heliosky.IoT.GPS.SampleApp
             };
 
             gps = new UBXSerialGPS(dis[0], cfg_prt);
+            gps.MessageReceived += Gps_MessageReceived;
+            
 
             statusTextBox.Text = "GPS Started";
 
@@ -61,7 +69,7 @@ namespace Heliosky.IoT.GPS.SampleApp
             {
                 ClassID = 0x01,
                 MessageID = 0x02,
-                Rate = 2
+                Rate = 1
             };
 
             bool res = await gps.WriteConfigAsync(cfg_msg);
@@ -90,18 +98,43 @@ namespace Heliosky.IoT.GPS.SampleApp
             }
         }
 
-        private void Gps_FixDataReceived(object sender, FixDataReceivedEventArgs e)
+        private void Gps_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            statusTextBox.Text = "GPS Data Received at " + DateTime.Now.ToString();
+            UBX.NavigationGeodeticPosition pos = e.ReceivedMessage as UBX.NavigationGeodeticPosition;
 
-            StringBuilder bldr = new StringBuilder();
-            bldr.AppendLine("GPS Information");
-            bldr.AppendLine("Latitude: " + e.Data.Latitude);
-            bldr.AppendLine("Longitude: " + e.Data.Longitude);
-            bldr.AppendLine("Time: " + e.Data.CurrentTime);
-            bldr.AppendLine("Sattelite Used: " + e.Data.SateliteUsed);
+            if(pos != null)
+            {
+                statusTextBox.Text = "GPS Data Received at " + DateTime.Now.ToString();
 
-            contentTextBox.Text = bldr.ToString();
+                StringBuilder bldr = new StringBuilder();
+                bldr.AppendLine("GPS Information");
+                bldr.AppendLine("Latitude: " + pos.Latitude);
+                bldr.AppendLine("Longitude: " + pos.Longitude);
+                bldr.AppendLine("Time: " + pos.TimeMillisOfWeek);
+                bldr.AppendLine("MSL: " + pos.HeightAboveSeaLevel);
+
+                contentTextBox.Text = bldr.ToString();
+
+                if(myLocation == null)
+                {
+                    mapView.Center = new Windows.Devices.Geolocation.Geopoint(pos.GetGeoposition());
+                    mapView.ZoomLevel = 18;
+
+                    myLocation = new MapIcon();
+                    myLocation.Location = mapView.Center;
+                    myLocation.NormalizedAnchorPoint = new Point(0.5, 1.0);
+                    myLocation.Image = mapIconStreamReference;
+                    myLocation.ZIndex = 0;
+                    mapView.MapElements.Add(myLocation);
+                }
+                else
+                {
+                    myLocation.Location = new Windows.Devices.Geolocation.Geopoint(pos.GetGeoposition());
+                }
+
+                
+                
+            }
         }
     }
 }

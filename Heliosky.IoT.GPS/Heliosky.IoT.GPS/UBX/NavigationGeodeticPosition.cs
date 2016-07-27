@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Devices.Geolocation;
 
 namespace Heliosky.IoT.GPS.UBX
 {
@@ -38,6 +39,17 @@ namespace Heliosky.IoT.GPS.UBX
         public double Longitude
         {
             get { return LongitudeValue / 10000000.0; }
+        }
+
+        public BasicGeoposition GetGeoposition()
+        {
+            var ret = new BasicGeoposition()
+            {
+                Latitude = this.Latitude,
+                Longitude = this.Longitude,
+                Altitude = this.HeightAboveSeaLevel / 1000.0
+            };
+            return ret;
         }
 
         public override string ToString()

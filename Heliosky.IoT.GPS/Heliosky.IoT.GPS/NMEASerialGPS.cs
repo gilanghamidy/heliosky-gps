@@ -112,6 +112,7 @@ namespace Heliosky.IoT.GPS
 
         private async void ConfigPort()
         {
+            /*
             if(UARTConfiguration.HasValue)
             {
                 var config = UARTConfiguration.Value;
@@ -160,7 +161,7 @@ namespace Heliosky.IoT.GPS
                     }
                         
                 }
-            }
+            }*/
         }
 
         private Tuple<byte,byte> GetChecksum(byte[] payload)
