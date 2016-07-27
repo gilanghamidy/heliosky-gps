@@ -64,7 +64,7 @@ namespace Heliosky.IoT.GPS.SampleApp
                 Rate = 2
             };
 
-            bool res = await gps.WriteConfig(cfg_msg);
+            bool res = await gps.WriteConfigAsync(cfg_msg);
 
             if(res)
             {
