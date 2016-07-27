@@ -30,25 +30,52 @@ namespace Heliosky.IoT.GPS
         {
             private Dictionary<ExpectingDescription, ExpectingContext> expectingList = new Dictionary<ExpectingDescription, ExpectingContext>();
 
+            /// <summary>
+            /// Expect a message of specific type from GPS serial device.
+            /// </summary>
+            /// <typeparam name="T">Type of message which is expected</typeparam>
+            /// <returns>The message which is expected</returns>
+            /// <remarks>
+            /// This method is performed asynchronously and it should be awaited. The method will complete 
+            /// when it receive the <u>first message</u> with required type or if it is aborted by calling
+            /// <see cref="AbortExpectAsync{T}"/>.
+            /// </remarks>
             public async Task<T> ExpectAsync<T>() where T : UBX.UBXModelBase
             {
+                // Create expecting description as key
                 var expectingDesc = new ExpectingDescription(typeof(T));
 
+                // invalid operation if other context already expecting the same type at the same time
                 if (expectingList.ContainsKey(expectingDesc))
                     throw new InvalidOperationException(String.Format("Already expecting type {0}", typeof(T).FullName));
 
-                
+                // Create expecting context
                 var expectingContext = new ExpectingContext();
 
+                // Add to expecting list
                 expectingList.Add(expectingDesc, expectingContext);
 
+                // Wait indefinitely until the response of the type is received
                 await expectingContext.WaitForResponse();
-
+                // At this point, the message is received
+                // Remove from expecting list
                 expectingList.Remove(expectingDesc);
 
+                // Return the message object to the caller
                 return (T)expectingContext.ResponseReceived;
             }
 
+            /// <summary>
+            /// Expect an Acknowledge message from GPS serial device
+            /// </summary>
+            /// <param name="classId">Class ID of expected acknowledge message</param>
+            /// <param name="messageId">Message ID of expected acknowledge message</param>
+            /// <returns>True if ACK message is received, False if NOT-ACK message is received</returns>
+            /// <remarks>
+            /// Use this method to wait acknowledge message (ACK/NOT-ACK) from serial device after transmitting
+            /// configuration message to the device. This method will wait indefinitely until ACK/NOT-ACK message
+            /// for specified class and message ID is received.
+            /// </remarks>
             public async Task<bool> ExpectAcknowledgeAsync(byte classId, byte messageId)
             {
                 var expectingDesc = new ExpectingDescription(classId, messageId);
@@ -69,6 +96,14 @@ namespace Heliosky.IoT.GPS
                     return false;
             }
 
+            /// <summary>
+            /// Abort the asynchronous ExpectAsync operation.
+            /// </summary>
+            /// <typeparam name="T"></typeparam>
+            /// <remarks>
+            /// This method is used if you want to implement timeout on <see cref="ExpectAsync{T}"/> execution.
+            /// The ExpectAsync method will return null if it is awaited.
+            /// </remarks>
             public void AbortExpectAsync<T>()
             {
                 var expectingDesc = new ExpectingDescription(typeof(T));
@@ -80,6 +115,10 @@ namespace Heliosky.IoT.GPS
                 expectingContext.Cancel();
             }
 
+            /// <summary>
+            /// Notify any party if waits a message of this type
+            /// </summary>
+            /// <param name="obj">The message to be notified</param>
             public void NotifyIfExpected(UBX.UBXModelBase obj)
             {
                 var expectingDesc = new ExpectingDescription(obj);
@@ -88,13 +127,16 @@ namespace Heliosky.IoT.GPS
                     var expectingContext = expectingList[expectingDesc];
                     expectingContext.NotifyResponseReceived(obj);
                 }
-                catch(KeyNotFoundException)
+                catch (KeyNotFoundException)
                 {
                     return;
                 }
             }
         }
 
+        /// <summary>
+        /// Class that represent the key of expected message
+        /// </summary>
         private class ExpectingDescription
         {
             public enum ExpectingMode
@@ -107,6 +149,10 @@ namespace Heliosky.IoT.GPS
             private byte classId, messageId;
             private ExpectingMode expectedMessageMode;
 
+            /// <summary>
+            /// Create description key for expecting a message of type.
+            /// </summary>
+            /// <param name="message">The message</param>
             public ExpectingDescription(UBX.UBXModelBase message)
             {
                 if (message is UBX.AcknowledgeBase)
@@ -120,16 +166,25 @@ namespace Heliosky.IoT.GPS
                 {
                     this.expectingType = message.GetType();
                     this.expectedMessageMode = ExpectingMode.Regular;
-                    
+
                 }
             }
 
+            /// <summary>
+            /// Create description key for expecting a message of type.
+            /// </summary>
+            /// <param name="message">The type of the message</param>
             public ExpectingDescription(Type messageType)
             {
                 this.expectingType = messageType;
                 this.expectedMessageMode = ExpectingMode.Regular;
             }
 
+            /// <summary>
+            /// Create description key for expecting an acknowledge message
+            /// </summary>
+            /// <param name="classId">Class ID that is expected</param>
+            /// <param name="messageId">Message ID that is expected</param>
             public ExpectingDescription(byte classId, byte messageId)
             {
                 this.classId = classId;
@@ -139,14 +194,14 @@ namespace Heliosky.IoT.GPS
 
             public override bool Equals(object obj)
             {
-                if(base.Equals(obj))
+                if (base.Equals(obj))
                     return true;
                 else
                 {
                     ExpectingDescription desc = obj as ExpectingDescription;
-                    if(desc != null)
+                    if (desc != null)
                     {
-                        if(this.expectedMessageMode == desc.expectedMessageMode)
+                        if (this.expectedMessageMode == desc.expectedMessageMode)
                         {
                             if (this.expectedMessageMode == ExpectingMode.Regular)
                                 return this.expectingType.Equals(desc.expectingType);
@@ -167,43 +222,64 @@ namespace Heliosky.IoT.GPS
             }
         }
 
+        /// <summary>
+        /// Context of expecting mechanism
+        /// </summary>
         private class ExpectingContext
         {
             private CancellationTokenSource notifyTokenSource;
-            
+
+            /// <summary>
+            /// Instantiate ExpectingContext
+            /// </summary>
             public ExpectingContext()
             {
                 notifyTokenSource = new CancellationTokenSource();
             }
 
+            /// <summary>
+            /// The response message received
+            /// </summary>
             public UBX.UBXModelBase ResponseReceived { get; private set; }
-            
+
+            /// <summary>
+            /// Wait indefinitely for response message
+            /// </summary>
             public async Task WaitForResponse()
             {
                 try
                 {
                     await Task.Delay(-1, notifyTokenSource.Token);
                 }
-                catch(TaskCanceledException)
+                catch (TaskCanceledException)
                 {
 
                 }
             }
 
+            /// <summary>
+            /// Notify the waiting party that the response is received
+            /// </summary>
+            /// <param name="obj">The message that is received</param>
             public void NotifyResponseReceived(UBX.UBXModelBase obj)
             {
                 this.ResponseReceived = obj;
                 notifyTokenSource.Cancel();
             }
 
+            /// <summary>
+            /// Cancel the wait operation
+            /// </summary>
             public void Cancel()
             {
                 notifyTokenSource.Cancel();
             }
         }
 
-        
 
+        /// <summary>
+        /// Default buffer length
+        /// </summary>
         public const uint BufferLength = 10240;
 
         private DeviceInformation deviceInfo;
@@ -215,12 +291,17 @@ namespace Heliosky.IoT.GPS
         private Dictionary<UBX.UBXModelBase, CancellationTokenSource> transmissionNotification = new Dictionary<UBX.UBXModelBase, CancellationTokenSource>();
 
         private ExpectingList expectingList = new ExpectingList();
-        
+
         private uint baudRate;
         private Task runningListenTask;
 
         bool running = false;
 
+        /// <summary>
+        /// Instantiate UBX Serial GPS device
+        /// </summary>
+        /// <param name="deviceInfo">Serial device information</param>
+        /// <param name="portConfig">Port configuration for UBX device</param>
         public UBXSerialGPS(DeviceInformation deviceInfo, UBX.ConfigPort portConfig)
         {
             this.deviceInfo = deviceInfo;
@@ -228,6 +309,12 @@ namespace Heliosky.IoT.GPS
             this.baudRate = AvailableBaudRate[1]; // Default BaudRate
         }
 
+        /// <summary>
+        /// Initialize and spawn serial device based on DeviceInformation and baud rate
+        /// </summary>
+        /// <param name="info">The device information for spawning the serial device</param>
+        /// <param name="baudRate">Specified baud rate</param>
+        /// <returns>The initialized SerialDevice</returns>
         private static async Task<SerialDevice> InitializeSerialPort(DeviceInformation info, uint baudRate)
         {
             var retSerialPort = await SerialDevice.FromIdAsync(info.Id);
@@ -241,6 +328,16 @@ namespace Heliosky.IoT.GPS
             return retSerialPort;
         }
 
+        /// <summary>
+        /// Start the UBXSerialDevice operation
+        /// </summary>
+        /// <returns>Task that represent the asynchronous operation of starting the device</returns>
+        /// <remarks>
+        /// The method first perform autodetecting port speed. After the current port speed is probed,
+        /// the method will try to config the port based on specified port configutation. The method 
+        /// completes the operation after initializing the internal asynchronous task for communication 
+        /// loop, which will runs asynchronously transparent from the user of this class.
+        /// </remarks>
         public async Task Start()
         {
             // Autodetect current baud rate
@@ -253,16 +350,20 @@ namespace Heliosky.IoT.GPS
             this.runningListenTask = Listen(this.baudRate);
         }
 
+        /// <summary>
+        /// Perform autodetecting port speed that the device is currently configured
+        /// </summary>
+        /// <returns>Task that represent the asynchronous operation for autodetecting port speed</returns>
         private async Task AutodetectPortSpeed()
         {
-            foreach(uint currentBaud in AvailableBaudRate)
+            // Loop on each supported baud rate
+            foreach (uint currentBaud in AvailableBaudRate)
             {
 #if DEBUG
                 Debug.WriteLine(String.Format("Probing speed: {0}", currentBaud));
 #endif
-
                 var success = await ProbePortSpeed(currentBaud);
-                if(success)
+                if (success)
                 {
                     this.baudRate = currentBaud;
 #if DEBUG
@@ -277,6 +378,10 @@ namespace Heliosky.IoT.GPS
             }
         }
 
+        /// <summary>
+        /// Perform device's port configuration
+        /// </summary>
+        /// <returns>Task that represent the asyncrhonous operation for configuring the device's port</returns>
         private async Task TryConfigPort()
         {
             if (portConfig == null)
@@ -284,37 +389,54 @@ namespace Heliosky.IoT.GPS
 
             try
             {
+                // Open and listen to serial device
                 this.runningListenTask = Listen(this.baudRate);
 
+                // Write the configuration data
                 await this.WriteConfig(portConfig);
 
                 // Assume that the baud rate is changed
+                // UBX will not send ACK on this current baud rate if the baud rate
+                // is changed. So it is no use to wait for ACK message to ensure that
+                // the config message is acknowledged
                 this.baudRate = portConfig.BaudRate;
 #if DEBUG
                 Debug.WriteLine("Success config BaudRate to: {0}", this.baudRate);
 #endif
-                
+
             }
             finally
             {
+                // Stop the listening loop to serial device
                 await Stop();
             }
         }
 
+        /// <summary>
+        /// Probe port speed that is currently running on the serial device
+        /// </summary>
+        /// <param name="testingBaudRate">Baud rate to probe</param>
+        /// <returns>True if the <paramref name="testingBaudRate"/> is correct baud rate of the device, false otherwise</returns>
         private async Task<bool> ProbePortSpeed(uint testingBaudRate)
         {
             try
             {
+                // Open and start listening to serial device
                 this.runningListenTask = Listen(testingBaudRate);
 
                 await Task.Delay(2000);
 
+                // Poll message from device
                 var task = this.PollMessageAsync<UBX.NavigationClock>();
-                
-                if(await Task.WhenAny(task, Task.Delay(10000)) == task)
+
+                // Wait until timeout
+                if (await Task.WhenAny(task, Task.Delay(10000)) == task)
                 {
+                    // Get the result
                     var result = await task;
 
+                    // If the result is exist, it is correct baud rate
+                    // otherwise, no
                     if (result == null)
                         return false;
                     else
@@ -322,6 +444,8 @@ namespace Heliosky.IoT.GPS
                 }
                 else
                 {
+                    // This is timeout, the message never received properly
+                    // So it is incorrect baud rate
                     this.AbortPollMessageAsync<UBX.NavigationClock>();
                     return false;
                 }
@@ -332,11 +456,16 @@ namespace Heliosky.IoT.GPS
             }
         }
 
+        /// <summary>
+        /// Stop the communication loop of the serial device
+        /// </summary>
+        /// <returns>Task that represent the asyncrhonous operation for stopping the device's communication</returns>
         public async Task Stop()
         {
             if (this.runningListenTask == null)
                 return;
 
+            // Notify the cancellation
             cancelToken.Cancel();
 
             try
@@ -344,26 +473,35 @@ namespace Heliosky.IoT.GPS
                 // Wait indefinitely until the listening loop has shutted down completely
                 await runningListenTask;
             }
-            catch(TaskCanceledException)
+            catch (TaskCanceledException)
             {
 
             }
             finally
             {
+                // Clear the task
                 runningListenTask = null;
             }
 
         }
 
+        /// <summary>
+        /// Communication loop for GPS serial device
+        /// </summary>
+        /// <param name="baudRate">Baud rate for this communication loop</param>
+        /// <returns>Task that represent the asyncrhonous operation of communication loop</returns>
         private async Task Listen(uint baudRate)
         {
+            // If it is already running, just bye
             if (running)
                 return;
 
+            // Initialize state and cancellation token to stop this operation
             running = true;
+            cancelToken = new CancellationTokenSource();
+
             DataReader dataReader = null;
             DataWriter dataWriter = null;
-            cancelToken = new CancellationTokenSource();
             SerialDevice serialPort = null;
 
 #if DEBUG
@@ -372,28 +510,36 @@ namespace Heliosky.IoT.GPS
 
             try
             {
+                // Get serial device from device info
                 serialPort = await InitializeSerialPort(this.deviceInfo, baudRate);
-
+                
                 serialPort.WriteTimeout = TimeSpan.FromMilliseconds(100);
                 serialPort.ReadTimeout = TimeSpan.FromMilliseconds(100);
-                    
+
                 dataReader = new DataReader(serialPort.InputStream);
                 dataReader.InputStreamOptions = InputStreamOptions.Partial;
 
                 dataWriter = new DataWriter(serialPort.OutputStream);
 
+                // Queue to store current byte processed, in case of data is transmitted
+                // intersecting between two loop
                 Queue<byte> currentlyProcessed = new Queue<byte>(1024);
+
+                // Current communication state of the loop
                 byte currentState = 0;
                 ushort payloadLength = 0;
 
-                while(true)
+                while (true)
                 {
                     cancelToken.Token.ThrowIfCancellationRequested();
 
+                    // Write any queued message
                     await WriteQueuedMessages(dataWriter);
 
                     // Longer timeout to prevent package drop
                     CancellationTokenSource timeoutToken = new CancellationTokenSource(serialPort.ReadTimeout.Milliseconds * 10);
+
+                    // Load asynchronously, while at the same time we process the data that is ready
                     var loadingTask = dataReader.LoadAsync(BufferLength).AsTask(timeoutToken.Token);
 
                     while (dataReader.UnconsumedBufferLength != 0)
@@ -435,7 +581,7 @@ namespace Heliosky.IoT.GPS
 #if DEBUG && VERBOSE
                         Debug.Write(currentByte.ToString("X") + ' ');
 #endif
-                            
+
                         // Reset processing if it encounter invalid header
                         if (fail)
                         {
@@ -445,12 +591,12 @@ namespace Heliosky.IoT.GPS
                             Debug.WriteLine("");
 #endif
                         }
-                        else if(currentState != 6)
+                        else if (currentState != 6)
                         {
                             // Increment state
                             currentState++;
                         }
-                        else if(currentState == 6)
+                        else if (currentState == 6)
                         {
                             // Loading the payload
                             if (payloadLength > 0)
@@ -459,6 +605,8 @@ namespace Heliosky.IoT.GPS
                                 currentState++;
                         }
 
+                        // If the entire message has been received properly
+                        // perform processing
                         if (currentState == 8)
                         {
                             try
@@ -471,7 +619,10 @@ namespace Heliosky.IoT.GPS
                                 DebugHelper.PrintArray(arr);
 #endif
 #endif
+                                // Parse the byte to UBX models
                                 var package = UBX.UBXModelBase.TryParse(arr);
+
+                                // Notify if any party is waiting this kind of message
                                 expectingList.NotifyIfExpected(package);
 #if DEBUG
                                 Debug.WriteLine(package.ToString());
@@ -506,7 +657,7 @@ namespace Heliosky.IoT.GPS
                     {
 
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
 #if DEBUG
                         Debug.WriteLine("Unexpected Exception when awaiting loading: " + ex);
@@ -520,7 +671,7 @@ namespace Heliosky.IoT.GPS
                 Debug.WriteLine("Listening port stopped!");
 #endif
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
 #if DEBUG
                 Debug.WriteLine("Unexpected Exception happen during the loop: " + ex);
@@ -535,7 +686,7 @@ namespace Heliosky.IoT.GPS
                     dataReader = null;
                 }
 
-                if(serialPort != null)
+                if (serialPort != null)
                 {
                     serialPort.Dispose();
                     serialPort = null;
@@ -546,6 +697,11 @@ namespace Heliosky.IoT.GPS
             }
         }
 
+        /// <summary>
+        /// Write queued message to a data writer specified
+        /// </summary>
+        /// <param name="writer">Data writer where the data will be written to</param>
+        /// <returns>Task that represent the asyncrhonous operation of WriteQueuedMessages</returns>
         private async Task WriteQueuedMessages(DataWriter writer)
         {
             // Transmit the queue
@@ -557,7 +713,7 @@ namespace Heliosky.IoT.GPS
 #endif
                 uint bytes = await WriteData(writer, currentTransmission.ToBinaryData());
 
-                if(this.transmissionNotification.ContainsKey(currentTransmission))
+                if (this.transmissionNotification.ContainsKey(currentTransmission))
                 {
                     transmissionNotification[currentTransmission].Cancel();
                 }
@@ -567,11 +723,21 @@ namespace Heliosky.IoT.GPS
             }
         }
 
+        /// <summary>
+        /// Transmit any message to the device
+        /// </summary>
+        /// <param name="messageToTransmit">Message to transmit to the device</param>
         public void TransmitMessage(UBX.UBXModelBase messageToTransmit)
         {
             transmitQueue.Enqueue(messageToTransmit);
         }
 
+        /// <summary>
+        /// Perform writing binary data to the DataWriter
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         private static async Task<uint> WriteData(DataWriter writer, byte[] b)
         {
             try
@@ -587,6 +753,11 @@ namespace Heliosky.IoT.GPS
             }
         }
 
+        /// <summary>
+        /// Write configuration message asynchronously to the device
+        /// </summary>
+        /// <param name="data">Communication message to be transmitted </param>
+        /// <returns></returns>
         public async Task<bool> WriteConfigAsync(UBX.UBXModelBase data)
         {
             if (!UBX.UBXModelBase.IsConfigMessage(data))
@@ -623,7 +794,7 @@ namespace Heliosky.IoT.GPS
             // Remove from notification list
             this.transmissionNotification.Remove(data);
 
-            
+
         }
 
         public async Task<T> PollMessageAsync<T>() where T : UBX.UBXModelBase
