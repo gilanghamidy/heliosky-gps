@@ -12,7 +12,7 @@ using Windows.ApplicationModel.Background;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace Heliosky.IoT.GPS
+namespace Heliosky.IoT.GPS.Legacy
 {
 
     [Flags]

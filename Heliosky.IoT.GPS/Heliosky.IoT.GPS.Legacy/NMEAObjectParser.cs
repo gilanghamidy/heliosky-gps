@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
 
-namespace Heliosky.IoT.GPS
+namespace Heliosky.IoT.GPS.Legacy
 {
     public class NMEAObjectParser
     {

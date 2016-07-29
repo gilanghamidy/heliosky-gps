@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 
-namespace Heliosky.IoT.GPS
+namespace Heliosky.IoT.GPS.Legacy
 {
     public class NMEAParser
     {

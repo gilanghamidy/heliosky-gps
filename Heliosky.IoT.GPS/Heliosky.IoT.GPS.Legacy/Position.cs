@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS
+namespace Heliosky.IoT.GPS.Legacy
 {
     public struct Position
     {

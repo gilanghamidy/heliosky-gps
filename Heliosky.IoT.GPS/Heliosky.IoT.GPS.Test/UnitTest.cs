@@ -1,6 +1,6 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestPlatform.UnitTestFramework;
-using Heliosky.IoT.GPS;
+using Heliosky.IoT.GPS.Legacy;
 
 namespace Heliosky.IoT.GPS.Test
 {

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Reflection;
 
-namespace Heliosky.IoT.GPS
+namespace Heliosky.IoT.GPS.Legacy
 {
     public static class NMEAFormat
     {

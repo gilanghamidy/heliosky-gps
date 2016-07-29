@@ -129,6 +129,10 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Heliosky.IoT.GPS.Legacy\Heliosky.IoT.GPS.Legacy.csproj">
+      <Project>{6cbb279b-9e24-4c81-860a-d03ca0d02cd9}</Project>
+      <Name>Heliosky.IoT.GPS.Legacy</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Heliosky.IoT.GPS\Heliosky.IoT.GPS.csproj">
       <Project>{05000b6e-ed5c-4280-a176-cceee55e2ce4}</Project>
       <Name>Heliosky.IoT.GPS</Name>

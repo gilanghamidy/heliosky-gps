@@ -17,23 +17,23 @@ namespace Heliosky.IoT.GPS.Test
         public static void InitializeTest(TestContext ctx)
         {
             // Force initialize static methods
-            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(UBX.UBXModelBase).TypeHandle);
-            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(UBX.BinaryWriterHelper).TypeHandle);
-            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(UBX.BinaryReaderHelper).TypeHandle);
+            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(UBXModelBase).TypeHandle);
+            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(BinaryWriterHelper).TypeHandle);
+            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(BinaryReaderHelper).TypeHandle);
         }
 
         [TestMethod]
         public void GenerateConfigPortMessage()
         {
-            UBX.ConfigPort cfg_prt = new UBX.ConfigPort()
+            Configuration.Port cfg_prt = new Configuration.Port()
             {
                 PortID = 1,
-                StopBit = UBX.ConfigPort.StopBitType.OneStop,
-                Parity = UBX.ConfigPort.ParityType.NoParity,
-                CharacterLength = UBX.ConfigPort.CharacterLengthType.Bit8,
+                StopBit = Configuration.Port.StopBitType.OneStop,
+                Parity = Configuration.Port.ParityType.NoParity,
+                CharacterLength = Configuration.Port.CharacterLengthType.Bit8,
                 BaudRate = 115200,
-                InputProtocol = UBX.ConfigPort.Protocol.UBX | UBX.ConfigPort.Protocol.NMEA,
-                OutputProtocol = UBX.ConfigPort.Protocol.UBX | UBX.ConfigPort.Protocol.NMEA
+                InputProtocol = Configuration.Port.Protocol.UBX | Configuration.Port.Protocol.NMEA,
+                OutputProtocol = Configuration.Port.Protocol.UBX | Configuration.Port.Protocol.NMEA
             };
 
             var generated_data = cfg_prt.ToBinaryData();
@@ -69,15 +69,15 @@ namespace Heliosky.IoT.GPS.Test
                                0x03, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0xBC, 0x5E };
 
-            var parsed = (UBX.ConfigPort)UBX.UBXModelBase.TryParse(message);
+            var parsed = (Configuration.Port)Configuration.Port.TryParse(message);
 
             Assert.AreEqual(1, parsed.PortID);
-            Assert.AreEqual(UBX.ConfigPort.StopBitType.OneStop, parsed.StopBit);
-            Assert.AreEqual(UBX.ConfigPort.ParityType.NoParity, parsed.Parity);
-            Assert.AreEqual(UBX.ConfigPort.CharacterLengthType.Bit8, parsed.CharacterLength);
+            Assert.AreEqual(Configuration.Port.StopBitType.OneStop, parsed.StopBit);
+            Assert.AreEqual(Configuration.Port.ParityType.NoParity, parsed.Parity);
+            Assert.AreEqual(Configuration.Port.CharacterLengthType.Bit8, parsed.CharacterLength);
             Assert.AreEqual((uint)115200, parsed.BaudRate);
-            Assert.AreEqual(UBX.ConfigPort.Protocol.UBX | UBX.ConfigPort.Protocol.NMEA, parsed.InputProtocol);
-            Assert.AreEqual(UBX.ConfigPort.Protocol.UBX | UBX.ConfigPort.Protocol.NMEA, parsed.OutputProtocol);
+            Assert.AreEqual(Configuration.Port.Protocol.UBX | Configuration.Port.Protocol.NMEA, parsed.InputProtocol);
+            Assert.AreEqual(Configuration.Port.Protocol.UBX | Configuration.Port.Protocol.NMEA, parsed.OutputProtocol);
         }
 
         [TestMethod]
@@ -86,7 +86,7 @@ namespace Heliosky.IoT.GPS.Test
             byte[] message = { 0xB5, 0x62, 0x05, 0x01, 0x02,
                                0x00, 0x06, 0x00, 0x0E, 0x37 };
 
-            var parsed = (UBX.Acknowledge)UBX.UBXModelBase.TryParse(message);
+            var parsed = (Acknowledge)UBXModelBase.TryParse(message);
 
             Assert.AreEqual((byte)0x06, parsed.ClassID);
             Assert.AreEqual((byte)0x00, parsed.MessageID);
