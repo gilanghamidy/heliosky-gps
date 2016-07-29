@@ -44,15 +44,15 @@ namespace Heliosky.IoT.GPS.SampleApp
             string aqs = SerialDevice.GetDeviceSelector();
             var dis = await DeviceInformation.FindAllAsync(aqs);
 
-            UBX.ConfigPort cfg_prt = new UBX.ConfigPort()
+            Configuration.Port cfg_prt = new Configuration.Port()
             {
                 PortID = 1,
-                StopBit = UBX.ConfigPort.StopBitType.OneStop,
-                Parity = UBX.ConfigPort.ParityType.NoParity,
-                CharacterLength = UBX.ConfigPort.CharacterLengthType.Bit8,
+                StopBit = Configuration.Port.StopBitType.OneStop,
+                Parity = Configuration.Port.ParityType.NoParity,
+                CharacterLength = Configuration.Port.CharacterLengthType.Bit8,
                 BaudRate = 115200,
-                InputProtocol = UBX.ConfigPort.Protocol.UBX,
-                OutputProtocol = UBX.ConfigPort.Protocol.UBX
+                InputProtocol = Configuration.Port.Protocol.UBX,
+                OutputProtocol = Configuration.Port.Protocol.UBX
             };
 
             gps = new UBXSerialGPS(dis[0], cfg_prt);
@@ -65,7 +65,7 @@ namespace Heliosky.IoT.GPS.SampleApp
 
             statusTextBox.Text = "GPS init completed";
 
-            UBX.ConfigMessage cfg_msg = new UBX.ConfigMessage()
+            Configuration.Message cfg_msg = new Configuration.Message()
             {
                 ClassID = 0x01,
                 MessageID = 0x02,
@@ -86,7 +86,7 @@ namespace Heliosky.IoT.GPS.SampleApp
             }
 
             statusTextBox.Text = "Polling message Monitor Receiver Status";
-            UBX.NavigationClock resp = await gps.PollMessageAsync<UBX.NavigationClock>();
+            Navigation.Clock resp = await gps.PollMessageAsync<Navigation.Clock>();
 
             if(resp != null)
             {
@@ -100,7 +100,7 @@ namespace Heliosky.IoT.GPS.SampleApp
 
         private void Gps_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            UBX.NavigationGeodeticPosition pos = e.ReceivedMessage as UBX.NavigationGeodeticPosition;
+            Navigation.GeodeticPosition pos = e.ReceivedMessage as Navigation.GeodeticPosition;
 
             if(pos != null)
             {

@@ -112,20 +112,20 @@
     <Compile Include="DebugHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UBXAttributes.cs" />
-    <Compile Include="UBX\ConfigRate.cs" />
-    <Compile Include="UBX\MonitorReceiverStatus.cs" />
-    <Compile Include="UBX\NavigationClock.cs" />
-    <Compile Include="UBX\NavigationDOP.cs" />
-    <Compile Include="UBX\NavigationECEFPosition.cs" />
-    <Compile Include="UBX\NavigationGeodeticPosition.cs" />
-    <Compile Include="UBX\ConfigMessage.cs" />
-    <Compile Include="UBX\UBXEventArgs.cs" />
-    <Compile Include="UBX\NavigationSpaceVehicleInfo.cs" />
-    <Compile Include="UBX\UBXException.cs" />
-    <Compile Include="UBX\UBXModelBase.cs" />
+    <Compile Include="Configuration\Rate.cs" />
+    <Compile Include="Monitor\ReceiverStatus.cs" />
+    <Compile Include="Navigation\Clock.cs" />
+    <Compile Include="Navigation\DOP.cs" />
+    <Compile Include="Navigation\ECEFPosition.cs" />
+    <Compile Include="Navigation\GeodeticPosition.cs" />
+    <Compile Include="Configuration\Message.cs" />
+    <Compile Include="UBXEventArgs.cs" />
+    <Compile Include="Navigation\SpaceVehicleInfo.cs" />
+    <Compile Include="UBXException.cs" />
+    <Compile Include="UBXModelBase.cs" />
     <Compile Include="UBXSerialGPS.cs" />
-    <Compile Include="UBX\Acknowledge.cs" />
-    <Compile Include="UBX\ConfigPort.cs" />
+    <Compile Include="Acknowledge.cs" />
+    <Compile Include="Configuration\Port.cs" />
     <EmbeddedResource Include="Properties\Heliosky.IoT.GPS.rd.xml" />
   </ItemGroup>
   <ItemGroup>

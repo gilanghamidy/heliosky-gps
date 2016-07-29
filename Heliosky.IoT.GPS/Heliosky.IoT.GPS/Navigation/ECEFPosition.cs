@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS.UBX
+namespace Heliosky.IoT.GPS.Navigation
 {
     [UBXMessage(0x01, 0x01, MessageType.Receive | MessageType.Poll)]
-    public class NavigationECEFPosition : UBXModelBase
+    public class ECEFPosition : UBXModelBase
     {
         [UBXField(0)]
         public uint TimeMillisOfWeek { get; set; }

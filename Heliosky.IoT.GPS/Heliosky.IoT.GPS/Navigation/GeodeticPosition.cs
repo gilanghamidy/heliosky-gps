@@ -5,10 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Windows.Devices.Geolocation;
 
-namespace Heliosky.IoT.GPS.UBX
+namespace Heliosky.IoT.GPS.Navigation
 {
     [UBXMessage(0x01, 0x02, MessageType.Receive | MessageType.Poll)]
-    public class NavigationGeodeticPosition : UBXModelBase
+    public class GeodeticPosition : UBXModelBase
     {
         [UBXField(0)]
         public uint TimeMillisOfWeek { get; set; }

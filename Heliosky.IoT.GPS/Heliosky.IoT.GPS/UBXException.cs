@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS.UBX
+namespace Heliosky.IoT.GPS
 {
     public class UBXException : Exception
     {

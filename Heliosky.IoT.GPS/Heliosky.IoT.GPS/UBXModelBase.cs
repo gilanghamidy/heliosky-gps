@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS.UBX
+namespace Heliosky.IoT.GPS
 {
     internal struct UBXFieldDefinition
     {

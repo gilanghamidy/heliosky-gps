@@ -40,7 +40,7 @@ namespace Heliosky.IoT.GPS
             /// when it receive the <u>first message</u> with required type or if it is aborted by calling
             /// <see cref="AbortExpectAsync{T}"/>.
             /// </remarks>
-            public async Task<T> ExpectAsync<T>() where T : UBX.UBXModelBase
+            public async Task<T> ExpectAsync<T>() where T : UBXModelBase
             {
                 // Create expecting description as key
                 var expectingDesc = new ExpectingDescription(typeof(T));
@@ -90,7 +90,7 @@ namespace Heliosky.IoT.GPS
 
                 var retVal = expectingContext.ResponseReceived;
 
-                if (retVal is UBX.Acknowledge)
+                if (retVal is Acknowledge)
                     return true;
                 else
                     return false;
@@ -120,7 +120,7 @@ namespace Heliosky.IoT.GPS
             /// </summary>
             /// <param name="obj">The message to be notified</param>
             /// <returns>True if there is a party that is waiting for this kind of message, false otherwise.</returns>
-            public bool NotifyIfExpected(UBX.UBXModelBase obj)
+            public bool NotifyIfExpected(UBXModelBase obj)
             {
                 var expectingDesc = new ExpectingDescription(obj);
                 try
@@ -155,11 +155,11 @@ namespace Heliosky.IoT.GPS
             /// Create description key for expecting a message of type.
             /// </summary>
             /// <param name="message">The message</param>
-            public ExpectingDescription(UBX.UBXModelBase message)
+            public ExpectingDescription(UBXModelBase message)
             {
-                if (message is UBX.AcknowledgeBase)
+                if (message is AcknowledgeBase)
                 {
-                    var ack = message as UBX.AcknowledgeBase;
+                    var ack = message as AcknowledgeBase;
                     this.classId = ack.ClassID;
                     this.messageId = ack.MessageID;
                     this.expectedMessageMode = ExpectingMode.Acknowledge;
@@ -242,7 +242,7 @@ namespace Heliosky.IoT.GPS
             /// <summary>
             /// The response message received
             /// </summary>
-            public UBX.UBXModelBase ResponseReceived { get; private set; }
+            public UBXModelBase ResponseReceived { get; private set; }
 
             /// <summary>
             /// Wait indefinitely for response message
@@ -263,7 +263,7 @@ namespace Heliosky.IoT.GPS
             /// Notify the waiting party that the response is received
             /// </summary>
             /// <param name="obj">The message that is received</param>
-            public void NotifyResponseReceived(UBX.UBXModelBase obj)
+            public void NotifyResponseReceived(UBXModelBase obj)
             {
                 this.ResponseReceived = obj;
                 notifyTokenSource.Cancel();
@@ -287,10 +287,10 @@ namespace Heliosky.IoT.GPS
         private DeviceInformation deviceInfo;
         private CancellationTokenSource cancelToken;
 
-        private UBX.ConfigPort portConfig;
+        private Configuration.Port portConfig;
 
-        private Queue<UBX.UBXModelBase> transmitQueue = new Queue<UBX.UBXModelBase>();
-        private Dictionary<UBX.UBXModelBase, CancellationTokenSource> transmissionNotification = new Dictionary<UBX.UBXModelBase, CancellationTokenSource>();
+        private Queue<UBXModelBase> transmitQueue = new Queue<UBXModelBase>();
+        private Dictionary<UBXModelBase, CancellationTokenSource> transmissionNotification = new Dictionary<UBXModelBase, CancellationTokenSource>();
 
         private ExpectingList expectingList = new ExpectingList();
 
@@ -304,7 +304,7 @@ namespace Heliosky.IoT.GPS
         /// </summary>
         /// <param name="deviceInfo">Serial device information</param>
         /// <param name="portConfig">Port configuration for UBX device</param>
-        public UBXSerialGPS(DeviceInformation deviceInfo, UBX.ConfigPort portConfig)
+        public UBXSerialGPS(DeviceInformation deviceInfo, Configuration.Port portConfig)
         {
             this.deviceInfo = deviceInfo;
             this.portConfig = portConfig;
@@ -429,7 +429,7 @@ namespace Heliosky.IoT.GPS
                 await Task.Delay(2000);
 
                 // Poll message from device
-                var task = this.PollMessageAsync<UBX.NavigationClock>();
+                var task = this.PollMessageAsync<Navigation.Clock>();
 
                 // Wait until timeout
                 if (await Task.WhenAny(task, Task.Delay(10000)) == task)
@@ -448,7 +448,7 @@ namespace Heliosky.IoT.GPS
                 {
                     // This is timeout, the message never received properly
                     // So it is incorrect baud rate
-                    this.AbortPollMessageAsync<UBX.NavigationClock>();
+                    this.AbortPollMessageAsync<Navigation.Clock>();
                     return false;
                 }
             }
@@ -565,11 +565,11 @@ namespace Heliosky.IoT.GPS
                         switch (currentState)
                         {
                             case 0: // Start with Header 1
-                                if (currentByte != UBX.UBXModelBase.Header1)
+                                if (currentByte != UBXModelBase.Header1)
                                     fail = true;
                                 break;
                             case 1: // Followed by Header 2, otherwise fail
-                                if (currentByte != UBX.UBXModelBase.Header2)
+                                if (currentByte != UBXModelBase.Header2)
                                     fail = true;
                                 break;
                             case 4: // Retrieve Size
@@ -622,7 +622,7 @@ namespace Heliosky.IoT.GPS
 #endif
 #endif
                                 // Parse the byte to UBX models
-                                var package = UBX.UBXModelBase.TryParse(arr);
+                                var package = UBXModelBase.TryParse(arr);
 
                                 // Notify if any party is waiting this kind of message
                                 if (!expectingList.NotifyIfExpected(package))
@@ -633,7 +633,7 @@ namespace Heliosky.IoT.GPS
                                 Debug.WriteLine(package.ToString());
 #endif
                             }
-                            catch (UBX.UBXException ex)
+                            catch (UBXException ex)
                             {
 #if DEBUG
                                 Debug.WriteLine("Failed parsing UBX package: " + ex);
@@ -732,7 +732,7 @@ namespace Heliosky.IoT.GPS
         /// Transmit any message to the device
         /// </summary>
         /// <param name="messageToTransmit">Message to transmit to the device</param>
-        public void TransmitMessage(UBX.UBXModelBase messageToTransmit)
+        public void TransmitMessage(UBXModelBase messageToTransmit)
         {
             transmitQueue.Enqueue(messageToTransmit);
         }
@@ -763,19 +763,19 @@ namespace Heliosky.IoT.GPS
         /// </summary>
         /// <param name="data">Communication message to be transmitted </param>
         /// <returns></returns>
-        public async Task<bool> WriteConfigAsync(UBX.UBXModelBase data)
+        public async Task<bool> WriteConfigAsync(UBXModelBase data)
         {
-            if (!UBX.UBXModelBase.IsConfigMessage(data))
+            if (!UBXModelBase.IsConfigMessage(data))
                 throw new NotSupportedException("WriteConfig only available for config type UBX message");
 
             TransmitMessage(data);
-            var attr = UBX.UBXModelBase.GetMessageAttribute(data);
+            var attr = UBXModelBase.GetMessageAttribute(data);
             return await expectingList.ExpectAcknowledgeAsync(attr.ClassID, attr.MessageID);
         }
 
-        public async Task WriteConfig(UBX.UBXModelBase data)
+        public async Task WriteConfig(UBXModelBase data)
         {
-            if (!UBX.UBXModelBase.IsConfigMessage(data))
+            if (!UBXModelBase.IsConfigMessage(data))
                 throw new NotSupportedException("WriteConfig only available for config type UBX message");
 
             var notifyToken = new CancellationTokenSource();
@@ -800,9 +800,9 @@ namespace Heliosky.IoT.GPS
             this.transmissionNotification.Remove(data);
         }
 
-        public async Task<T> PollMessageAsync<T>() where T : UBX.UBXModelBase
+        public async Task<T> PollMessageAsync<T>() where T : UBXModelBase
         {
-            var pollMessage = UBX.UBXModelBase.GetPollMessage<T>();
+            var pollMessage = UBXModelBase.GetPollMessage<T>();
 
             // Send the data
             TransmitMessage(pollMessage);
@@ -811,14 +811,14 @@ namespace Heliosky.IoT.GPS
             return await expectingList.ExpectAsync<T>();
         }
 
-        public void AbortPollMessageAsync<T>() where T : UBX.UBXModelBase
+        public void AbortPollMessageAsync<T>() where T : UBXModelBase
         {
             expectingList.AbortExpectAsync<T>();
         }
 
         public event EventHandler<MessageReceivedEventArgs> MessageReceived;
 
-        protected void OnMessageReceived(UBX.UBXModelBase receivedMessage)
+        protected void OnMessageReceived(UBXModelBase receivedMessage)
         {
             this.MessageReceived?.Invoke(this, new MessageReceivedEventArgs(receivedMessage));
         }
@@ -826,9 +826,9 @@ namespace Heliosky.IoT.GPS
 
     public class MessageReceivedEventArgs : EventArgs
     {
-        public UBX.UBXModelBase ReceivedMessage { get; private set; }
+        public UBXModelBase ReceivedMessage { get; private set; }
 
-        public MessageReceivedEventArgs(UBX.UBXModelBase receivedMessage)
+        public MessageReceivedEventArgs(UBXModelBase receivedMessage)
         {
             this.ReceivedMessage = receivedMessage;
         }

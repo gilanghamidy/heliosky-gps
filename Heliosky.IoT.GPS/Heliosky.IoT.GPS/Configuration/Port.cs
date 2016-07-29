@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS.UBX
+namespace Heliosky.IoT.GPS.Configuration
 {
     [UBXConfig]
     [UBXMessage(0x06, 0x00, MessageType.Send | MessageType.Receive)]
-    public class ConfigPort : UBXModelBase
+    public class Port : UBXModelBase
     {
         [Flags]
         public enum Protocol : ushort
@@ -38,7 +38,7 @@ namespace Heliosky.IoT.GPS.UBX
             TwoHalf = 3
         }
 
-        public ConfigPort()
+        public Port()
         {
             Mode = 0x10;
         }

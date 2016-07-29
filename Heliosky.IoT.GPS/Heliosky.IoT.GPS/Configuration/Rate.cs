@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Heliosky.IoT.GPS.UBX
+namespace Heliosky.IoT.GPS.Configuration
 {
     [UBXConfig]
     [UBXMessage(0x06, 0x08, MessageType.Send | MessageType.Receive)]
-    public class ConfigRate : UBXModelBase
+    public class Rate : UBXModelBase
     {
         public enum ReferenceTimeMode : ushort
         {
