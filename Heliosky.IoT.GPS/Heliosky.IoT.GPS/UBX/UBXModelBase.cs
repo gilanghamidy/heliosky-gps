@@ -80,7 +80,7 @@ namespace Heliosky.IoT.GPS.UBX
 
         static UBXModelBase()
         {
-            Assembly thisAssembly = typeof(NMEAParser).GetTypeInfo().Assembly;
+            Assembly thisAssembly = typeof(UBXModelBase).GetTypeInfo().Assembly;
 
             var items = from t in thisAssembly.GetTypes()
                         let attr = t.GetTypeInfo().GetCustomAttribute(typeof(UBXMessageAttribute)) as UBXMessageAttribute
@@ -392,7 +392,7 @@ namespace Heliosky.IoT.GPS.UBX
 
         static UBXStructureMapper()
         {
-            Assembly thisAssembly = typeof(NMEAParser).GetTypeInfo().Assembly;
+            Assembly thisAssembly = typeof(UBXStructureMapper).GetTypeInfo().Assembly;
 
             var items = from t in thisAssembly.GetTypes()
                         let attr = t.GetTypeInfo().GetCustomAttribute(typeof(UBXStructureAttribute)) as UBXStructureAttribute
