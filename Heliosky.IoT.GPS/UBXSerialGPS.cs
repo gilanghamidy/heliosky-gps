@@ -789,6 +789,11 @@ namespace Heliosky.IoT.GPS
             return await expectingList.ExpectAcknowledgeAsync(attr.ClassID, attr.MessageID);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
         public async Task WriteConfig(UBXModelBase data)
         {
             if (!UBXModelBase.IsConfigMessage(data))

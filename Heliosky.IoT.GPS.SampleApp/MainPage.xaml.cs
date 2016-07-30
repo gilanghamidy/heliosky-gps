@@ -79,12 +79,7 @@ namespace Heliosky.IoT.GPS.SampleApp
 
             statusTextBox.Text = "GPS init completed";
 
-            Configuration.Message cfg_msg = new Configuration.Message()
-            {
-                ClassID = 0x01,
-                MessageID = 0x02,
-                Rate = 1
-            };
+            Configuration.Message cfg_msg = Configuration.Message.GetConfigurationForType<Navigation.GeodeticPosition>();
 
             bool res = await gps.WriteConfigAsync(cfg_msg);
 
