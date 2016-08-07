@@ -105,6 +105,17 @@ namespace Heliosky.IoT.GPS.SampleApp
             {
                 statusTextBox.Text = "Poll message failed";
             }
+
+            var status = await gps.PollMessageAsync<Navigation.Status>();
+
+            if (resp != null)
+            {
+                statusTextBox.Text = "Poll status success- Time to first fix: " + status.TimeToFirstFix;
+            }
+            else
+            {
+                statusTextBox.Text = "Poll status failed";
+            }
         }
 
         private void Gps_MessageReceived(object sender, MessageReceivedEventArgs e)
