@@ -411,7 +411,7 @@ namespace Heliosky.IoT.GPS
                 this.runningListenTask = Listen(this.baudRate);
 
                 // Write the configuration data
-                await this.WriteConfig(portConfig);
+                await this.WriteConfigIgnoreResultAsync(portConfig);
 
                 // Assume that the baud rate is changed
                 // UBX will not send ACK on this current baud rate if the baud rate
@@ -775,10 +775,14 @@ namespace Heliosky.IoT.GPS
         }
 
         /// <summary>
-        /// Write configuration message asynchronously to the device
+        /// Write configuration message to the device and wait until acknowledge or not-acknowledge message
+        /// arrived
         /// </summary>
         /// <param name="data">Communication message to be transmitted </param>
-        /// <returns></returns>
+        /// <returns>
+        /// Task represents the WriteConfigAsync execution, which upon completion returns boolean where 
+        /// true means the configuration is acknowledged, and false otherwise.
+        /// </returns>
         public async Task<bool> WriteConfigAsync(UBXModelBase data)
         {
             if (!UBXModelBase.IsConfigMessage(data))
@@ -790,11 +794,12 @@ namespace Heliosky.IoT.GPS
         }
 
         /// <summary>
-        /// 
+        /// Write configuration message and wait for the transmission to complete without caring about
+        /// it being acknowledge or not.
         /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public async Task WriteConfig(UBXModelBase data)
+        /// <param name="data">Communication message to be transmitted</param>
+        /// <returns>Task represent the WriteConfigIgnoreResultAsync execution</returns>
+        public async Task WriteConfigIgnoreResultAsync(UBXModelBase data)
         {
             if (!UBXModelBase.IsConfigMessage(data))
                 throw new NotSupportedException("WriteConfig only available for config type UBX message");
@@ -821,6 +826,14 @@ namespace Heliosky.IoT.GPS
             this.transmissionNotification.Remove(data);
         }
 
+        /// <summary>
+        /// Asynchronously request for message of type from the device.
+        /// </summary>
+        /// <typeparam name="T">Type of message that is requested.</typeparam>
+        /// <returns>
+        /// Task represents the PollMessageAsync execution, which upon completion returns the data
+        /// requested from the device, or null if it is aborted by calling <see cref="AbortPollMessageAsync{T}"/>.
+        /// </returns>
         public async Task<T> PollMessageAsync<T>() where T : UBXModelBase
         {
             var pollMessage = UBXModelBase.GetPollMessage<T>();
@@ -832,24 +845,50 @@ namespace Heliosky.IoT.GPS
             return await expectingList.ExpectAsync<T>();
         }
 
+        /// <summary>
+        /// Abort the asynchronous call of <see cref="PollMessageAsync{T}"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of message that was expected which is going to be aborted.</typeparam>
+        /// <remarks>
+        /// Call this method on different asynchronous context than the calling of <see cref="PollMessageAsync{T}"/>.
+        /// Calling this function will result the awaiting party of <see cref="PollMessageAsync{T}"/> continues the
+        /// exectuion and receive null as the return.
+        /// </remarks>
         public void AbortPollMessageAsync<T>() where T : UBXModelBase
         {
             expectingList.AbortExpectAsync<T>();
         }
 
+        /// <summary>
+        /// When a data or message is received from the GPS module.
+        /// </summary>
         public event EventHandler<MessageReceivedEventArgs> MessageReceived;
 
+        /// <summary>
+        /// Raise MessageReceived event with the specified message object.
+        /// </summary>
+        /// <param name="receivedMessage">Message object that is just received.</param>
         protected void OnMessageReceived(UBXModelBase receivedMessage)
         {
             this.MessageReceived?.Invoke(this, new MessageReceivedEventArgs(receivedMessage));
         }
     }
 
+    /// <summary>
+    /// Event arguments for MessageReceived event.
+    /// </summary>
     public class MessageReceivedEventArgs : EventArgs
     {
+        /// <summary>
+        /// The received message.
+        /// </summary>
         public UBXModelBase ReceivedMessage { get; private set; }
 
-        public MessageReceivedEventArgs(UBXModelBase receivedMessage)
+        /// <summary>
+        /// Instantiate MessageReceivedEventArgs.
+        /// </summary>
+        /// <param name="receivedMessage">The received message object.</param>
+        internal MessageReceivedEventArgs(UBXModelBase receivedMessage)
         {
             this.ReceivedMessage = receivedMessage;
         }
